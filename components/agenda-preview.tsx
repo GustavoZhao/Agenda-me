@@ -45,6 +45,10 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
       })
     : ""
 
+  const displayFont = {
+    fontFamily: "var(--font-montserrat), ui-sans-serif, system-ui, sans-serif",
+  }
+
   return (
     <div className={`mx-auto w-full ${fullWidth ? "max-w-6xl" : "max-w-3xl"}`}>
       <article id="agenda-sheet" className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
@@ -56,7 +60,9 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
               <img src={CLUB_LOGO_SRC || "/placeholder.svg"} alt="Club logo" className="size-full object-contain" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-balance text-xl font-bold leading-tight">{CLUB_NAME}</h1>
+              <h1 className="text-balance text-xl font-bold leading-tight" style={displayFont}>
+                {CLUB_NAME}
+              </h1>
               <p className="mt-1 text-pretty text-sm italic text-white/80">{CLUB_MISSION}</p>
               <p className="mt-1 text-xs font-medium text-white/70">{CLUB_META}</p>
             </div>
@@ -92,7 +98,9 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
         {/* Meeting info bar */}
         <div className="flex flex-wrap items-center justify-between gap-2 bg-[#004165] px-6 py-3 text-white">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-            <span className="font-semibold">{settings.meetingTitle || "Meeting Agenda"}</span>
+            <span className="font-semibold" style={displayFont}>
+              {settings.meetingTitle || "Meeting Agenda"}
+            </span>
             {dateLabel && <span className="text-white/80">{dateLabel}</span>}
           </div>
           <span className="text-sm font-medium">
@@ -115,13 +123,13 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
                         <span>Duration</span>
                         <div className="flex flex-wrap items-center justify-end gap-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                           <span className="inline-flex items-center gap-1 rounded-full bg-background/70 px-1.5 py-0.5">
-                            <span className="size-2.5 rounded-full bg-emerald-500 ring-1 ring-background" />Green
+                            <span className="size-2.5 rounded-full bg-emerald-500 ring-1 ring-background" />G
                           </span>
                           <span className="inline-flex items-center gap-1 rounded-full bg-background/70 px-1.5 py-0.5">
-                            <span className="size-2.5 rounded-full bg-amber-400 ring-1 ring-background" />Yellow
+                            <span className="size-2.5 rounded-full bg-amber-400 ring-1 ring-background" />Y
                           </span>
                           <span className="inline-flex items-center gap-1 rounded-full bg-background/70 px-1.5 py-0.5">
-                            <span className="size-2.5 rounded-full bg-red-500 ring-1 ring-background" />Red
+                            <span className="size-2.5 rounded-full bg-red-500 ring-1 ring-background" />R
                           </span>
                         </div>
                       </div>
@@ -159,14 +167,27 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
           </div>
 
           <aside className={`min-w-0 border-t border-border p-5 ${fullWidth ? "lg:border-t-0" : ""}`}>
-            {settings.wordOfTheDay?.trim() ? (
+            {(settings.wordOfTheDay?.trim() || settings.wordOfTheDayMeaning?.trim()) ? (
               <div className="mb-6 rounded-lg border border-[#004165]/30 bg-[#004165] p-4 text-white dark:border-[#004165]/30 dark:bg-[#004165]">
-                <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-white">Word of the Day</h2>
-                <p className="text-sm font-medium text-white">{settings.wordOfTheDay.trim()}</p>
+                <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-white" style={displayFont}>
+                  Word of the Day
+                </h2>
+                {settings.wordOfTheDay?.trim() ? (
+                  <p className="text-sm font-semibold text-white" style={displayFont}>
+                    {settings.wordOfTheDay.trim()}
+                  </p>
+                ) : null}
+                {settings.wordOfTheDayMeaning?.trim() ? (
+                  <p className="mt-1 text-sm font-light leading-relaxed text-white/90">
+                    {settings.wordOfTheDayMeaning.trim()}
+                  </p>
+                ) : null}
               </div>
             ) : null}
 
-            <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-primary">Executive Committee</h2>
+            <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-primary" style={displayFont}>
+              Executive Committee
+            </h2>
             <dl className="flex flex-col gap-1.5 text-sm">
               {OFFICER_FIELDS.map((f) => {
                 const value = clubInfo[f.key]
@@ -181,7 +202,9 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
             </dl>
 
             <div className="mt-6 rounded-lg bg-secondary/60 p-4">
-              <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-primary">How to Become a Member</h2>
+              <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-primary" style={displayFont}>
+                How to Become a Member
+              </h2>
               <ol className="flex list-decimal flex-col gap-1.5 pl-5 text-sm text-card-foreground">
                 {MEMBERSHIP_STEPS.map((step) => (
                   <li key={step} className="text-pretty">
@@ -191,16 +214,17 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
               </ol>
             </div>
 
-            {(clubInfo.vpmWechatQr || clubInfo.vpmWhatsappQr) && (
+            {(clubInfo.vpmWechatQr || clubInfo.vpmWhatsappQr || clubInfo.vpmContactNote?.trim()) && (
               <div className="mt-6">
                 <div className="flex flex-wrap justify-center gap-6">
                   {clubInfo.vpmWechatQr && <QrBadge src={clubInfo.vpmWechatQr} label="WeChat" />}
                   {clubInfo.vpmWhatsappQr && <QrBadge src={clubInfo.vpmWhatsappQr} label="WhatsApp" />}
                 </div>
-                <p className="mt-3 text-pretty text-center text-xs text-muted-foreground">
-                  Add our Vice President Membership (VPM), {clubInfo.vpm || "TBD"}, to learn more. Note: Please mention
-                  {' "BRICS"'} in your friend request!
-                </p>
+                {clubInfo.vpmContactNote?.trim() ? (
+                  <p className="mt-3 text-pretty text-center text-xs leading-relaxed text-muted-foreground">
+                    {clubInfo.vpmContactNote.trim()}
+                  </p>
+                ) : null}
               </div>
             )}
           </aside>
@@ -246,22 +270,25 @@ function AgendaRow({ row, sectionKey }: { row: ComputedRow; sectionKey: string |
       <td className="px-4 py-3 font-medium text-card-foreground">{sessionLabel}</td>
       <td className="px-4 py-3 text-muted-foreground">{roleLabel}</td>
       <td className="whitespace-nowrap px-4 py-3 text-right text-muted-foreground">
-        <div className="flex flex-col items-end gap-1">
-          <span>{formatDurationRange(row.durationMin, row.durationMax)}</span>
-          {!isBreak && (
-            <div className="flex items-center justify-end gap-1.5 text-[10px] text-muted-foreground">
-              <span className="inline-flex items-center gap-1 rounded-full bg-background/70 px-1.5 py-0.5">
-                <span className="size-2.5 rounded-full bg-emerald-500 ring-1 ring-background" />{row.timerGreen}′
-              </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-background/70 px-1.5 py-0.5">
-                <span className="size-2.5 rounded-full bg-amber-400 ring-1 ring-background" />{row.timerYellow}′
-              </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-background/70 px-1.5 py-0.5">
-                <span className="size-2.5 rounded-full bg-red-500 ring-1 ring-background" />{row.timerRed}′
-              </span>
-            </div>
-          )}
-        </div>
+        {isBreak ? (
+          <div className="flex items-center justify-end gap-1.5 text-[10px] text-muted-foreground">
+            <span className="inline-flex items-center gap-1 rounded-full bg-background/70 px-1.5 py-0.5">
+              <span className="size-2.5 rounded-full bg-red-500 ring-1 ring-background" />{row.durationMax}′
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center justify-end gap-1.5 text-[10px] text-muted-foreground">
+            <span className="inline-flex items-center gap-1 rounded-full bg-background/70 px-1.5 py-0.5">
+              <span className="size-2.5 rounded-full bg-emerald-500 ring-1 ring-background" />{row.timerGreen}′
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-background/70 px-1.5 py-0.5">
+              <span className="size-2.5 rounded-full bg-amber-400 ring-1 ring-background" />{row.timerYellow}′
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-background/70 px-1.5 py-0.5">
+              <span className="size-2.5 rounded-full bg-red-500 ring-1 ring-background" />{row.timerRed}′
+            </span>
+          </div>
+        )}
       </td>
     </tr>
   )

@@ -108,6 +108,7 @@ export type ClubInfo = {
   advisor: string
   vpmWechatQr: string // data URL of uploaded QR image
   vpmWhatsappQr: string // data URL of uploaded QR image
+  vpmContactNote: string
   zoomMeetingId: string
   zoomPasscode: string
 }
@@ -118,6 +119,8 @@ export type AgendaSettings = {
   startTime: string // "HH:MM"
   preWelcome: number // Welcome duration before the meeting officially starts (minutes)
   defaultBuffer: number
+  wordOfTheDay: string
+  wordOfTheDayMeaning: string
   sessions: Session[]
   clubInfo: ClubInfo
 }
@@ -177,6 +180,7 @@ export const DEFAULT_CLUB_INFO: ClubInfo = {
   advisor: "Ben Dai",
   vpmWechatQr: "",
   vpmWhatsappQr: "",
+  vpmContactNote: 'Add our Vice President Membership (VPM), Francis Liu, to learn more. Note: Please mention "BRICS" in your friend request!',
   zoomMeetingId: "286 785 5900",
   zoomPasscode: "2025BRICS",
 }
@@ -288,6 +292,8 @@ export const DEFAULT_SETTINGS: AgendaSettings = {
   startTime: "19:00",
   preWelcome: 5,
   defaultBuffer: 1,
+  wordOfTheDay: "",
+  wordOfTheDayMeaning: "",
   sessions: [
     makeSession({ activity: "Warm-up", presenter: "", durationMin: 5, durationMax: 5 }),
     makeSession({ activity: "Opening Remarks", presenter: "President", durationMin: 3, durationMax: 3 }),
@@ -368,7 +374,7 @@ export function getSectionRowLabel(row: ComputedRow, sectionKey: string | null):
     return row.activity || "(Untitled)"
   }
   if (sectionKey === "closing") {
-    return row.presenter?.trim() || row.activity || "—"
+    return row.activity?.trim() || "(Untitled)"
   }
   return row.activity?.trim() || "(Untitled)"
 }
@@ -381,8 +387,11 @@ export function getSectionRoleLabel(row: ComputedRow, sectionKey: string | null)
     const parts = [row.presenter?.trim(), row.participantTimeLimit ? `${row.participantTimeLimit}′ each` : ""]
     return parts.filter(Boolean).join(" · ") || "—"
   }
-  if (sectionKey === "break" || sectionKey === "closing") {
+  if (sectionKey === "break") {
     return "—"
+  }
+  if (sectionKey === "closing") {
+    return row.presenter?.trim() || "—"
   }
   if (sectionKey === "evaluations") {
     return row.presenter?.trim() || "—"
@@ -466,7 +475,7 @@ export function computeSchedule(settings: AgendaSettings): {
     rows.push({
       id: "pre-welcome",
       activity: "Welcome",
-      presenter: "Toastmaster",
+      presenter: "Club members",
       durationMin: settings.preWelcome,
       durationMax: settings.preWelcome,
       buffer: 0,
@@ -476,7 +485,6 @@ export function computeSchedule(settings: AgendaSettings): {
       start: formatTime(start),
       end: formatTime(meetingStart),
     })
-    totalDuration += settings.preWelcome
   }
 
   let cursor = meetingStart
@@ -506,6 +514,20 @@ export function formatDuration(minutes: number): string {
   const m = minutes % 60
   if (h > 0) return `${h} hr${m > 0 ? ` ${m} min` : ""}`
   return `${m} min`
+}
+
+export function encodeAgendaSettings(settings: AgendaSettings): string {
+  return encodeURIComponent(JSON.stringify(normalizeSettings(settings)))
+}
+
+export function decodeAgendaSettings(encoded: string): AgendaSettings | null {
+  try {
+    const decoded = decodeURIComponent(encoded)
+    const parsed = JSON.parse(decoded) as Partial<AgendaSettings>
+    return normalizeSettings(parsed)
+  } catch {
+    return null
+  }
 }
 
 // Normalize persisted settings (legacy activity names, missing optional fields)

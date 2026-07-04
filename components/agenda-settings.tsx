@@ -318,6 +318,14 @@ function MeetingSettingsBlock({
                 onChange={(e) => update({ wordOfTheDay: e.target.value })}
               />
             </Field>
+            <Field label="Word Meaning / Definition" hint="Optional explanation for the word">
+              <input
+                className={inputClass}
+                placeholder="Enter a brief definition"
+                value={settings.wordOfTheDayMeaning}
+                onChange={(e) => update({ wordOfTheDayMeaning: e.target.value })}
+              />
+            </Field>
             <Field label="Default Buffer (min)" hint="Host transition time between sessions">
               <div className="flex gap-2">
                 <input
@@ -691,6 +699,16 @@ function ClubInfoBlock({
               />
             </Field>
           </div>
+
+          <h3 className="mb-3 mt-6 text-sm font-semibold text-foreground">VPM Contact Note</h3>
+          <Field label="Contact note">
+            <textarea
+              className={`${inputClass} min-h-24 resize-y`}
+              value={clubInfo.vpmContactNote}
+              onChange={(e) => updateClubInfo({ vpmContactNote: e.target.value })}
+              placeholder="Enter the note shown under the QR codes"
+            />
+          </Field>
 
           <h3 className="mb-3 mt-6 text-sm font-semibold text-foreground">VPM Contact QR Codes</h3>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

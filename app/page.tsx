@@ -1,11 +1,16 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { type AgendaSettings, DEFAULT_SETTINGS, normalizeSettings } from "@/lib/agenda"
+import {
+  type AgendaSettings,
+  DEFAULT_SETTINGS,
+  encodeAgendaSettings,
+  normalizeSettings,
+} from "@/lib/agenda"
 import { AgendaSettingsPanel } from "@/components/agenda-settings"
 import { AgendaPreview } from "@/components/agenda-preview"
 import { Button } from "@/components/ui/button"
-import { Eye, Moon, Printer, RotateCcw, Settings2, SunMedium } from "lucide-react"
+import { Eye, Moon, Printer, RotateCcw, Save, Settings2, SunMedium } from "lucide-react"
 
 const STORAGE_KEY = "toastmasters-agenda-v1"
 
@@ -16,6 +21,7 @@ export default function Page() {
   const [tab, setTab] = useState<Tab>("settings")
   const [loaded, setLoaded] = useState(false)
   const [theme, setTheme] = useState<"light" | "dark">("light")
+  const [shareMessage, setShareMessage] = useState<string | null>(null)
 
   // Restore config from local storage
   useEffect(() => {
@@ -62,6 +68,20 @@ export default function Page() {
     }
   }
 
+  async function saveAndShare() {
+    const encoded = encodeAgendaSettings(settings)
+    const url = `${window.location.origin}/share?agenda=${encoded}`
+
+    try {
+      await navigator.clipboard.writeText(url)
+    } catch {
+      // ignore clipboard errors and still open the page
+    }
+
+    window.open(url, "_blank", "noopener,noreferrer")
+    setShareMessage("Shareable agenda page created. The link has been copied to your clipboard.")
+  }
+
   return (
     <main className="min-h-screen bg-background">
       <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
@@ -80,12 +100,22 @@ export default function Page() {
               <RotateCcw className="size-4" aria-hidden="true" />
               Reset
             </Button>
+            <Button type="button" variant="outline" size="sm" onClick={saveAndShare}>
+              <Save className="size-4" aria-hidden="true" />
+              Save
+            </Button>
             <Button type="button" size="sm" onClick={() => window.print()}>
               <Printer className="size-4" aria-hidden="true" />
               Print
             </Button>
           </div>
         </header>
+
+        {shareMessage ? (
+          <p className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300">
+            {shareMessage}
+          </p>
+        ) : null}
 
         {/* Tab switch */}
         <div className="mb-6 inline-flex rounded-lg border border-border bg-card p-1 print:hidden">
