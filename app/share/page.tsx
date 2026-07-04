@@ -3,47 +3,45 @@
 import { Suspense, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { AgendaPreview } from "@/components/agenda-preview"
-import { decodeAgendaSettings, type AgendaSettings, DEFAULT_SETTINGS, normalizeSettings } from "@/lib/agenda"
+import { type AgendaSettings, DEFAULT_SETTINGS } from "@/lib/agenda"
 
 function SharePageContent() {
   const searchParams = useSearchParams()
   const [settings, setSettings] = useState<AgendaSettings>(DEFAULT_SETTINGS)
   const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  const encoded = searchParams.get("agenda")
-  const agendaId = searchParams.get("agendaId")
+  const shareId = searchParams.get("id")
 
   useEffect(() => {
-    if (agendaId) {
-      const stored = window.localStorage.getItem(`toastmasters-agenda-share:${agendaId}`)
-      if (!stored) {
-        setError("The shared agenda link is invalid or has expired.")
+    async function loadSharedAgenda() {
+      if (!shareId) {
+        setError("No agenda ID provided in the link.")
+        setLoading(false)
         return
       }
 
       try {
-        const parsed = JSON.parse(stored) as Partial<AgendaSettings>
-        setSettings(normalizeSettings(parsed))
-        return
-      } catch {
-        setError("The shared agenda data could not be read.")
-        return
+        const response = await fetch(`/api/share/${encodeURIComponent(shareId)}`)
+
+        if (!response.ok) {
+          setError("The shared agenda link is invalid or has expired.")
+          setLoading(false)
+          return
+        }
+
+        const data = (await response.json()) as AgendaSettings
+        setSettings(data)
+      } catch (err) {
+        console.error("Error loading shared agenda:", err)
+        setError("Failed to load the shared agenda.")
+      } finally {
+        setLoading(false)
       }
     }
 
-    if (!encoded) {
-      setError("No agenda data was provided in the link.")
-      return
-    }
-
-    const decoded = decodeAgendaSettings(encoded)
-    if (!decoded) {
-      setError("The shared agenda link is invalid or has expired.")
-      return
-    }
-
-    setSettings(decoded)
-  }, [agendaId, encoded])
+    loadSharedAgenda()
+  }, [shareId])
 
   const title = useMemo(() => settings.meetingTitle || "Meeting Agenda", [settings.meetingTitle])
 
@@ -53,6 +51,16 @@ function SharePageContent() {
         <div className="max-w-lg rounded-xl border border-border bg-card p-8 text-center shadow-sm">
           <h1 className="text-xl font-semibold text-foreground">Unable to load shared agenda</h1>
           <p className="mt-3 text-sm text-muted-foreground">{error}</p>
+        </div>
+      </main>
+    )
+  }
+
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-center">
+          <p className="text-muted-foreground">Loading shared agenda…</p>
         </div>
       </main>
     )

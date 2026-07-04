@@ -13,7 +13,6 @@ import { Button } from "@/components/ui/button"
 import { Eye, Moon, Printer, RotateCcw, Save, Settings2, SunMedium } from "lucide-react"
 
 const STORAGE_KEY = "toastmasters-agenda-v1"
-const SHARE_STORAGE_PREFIX = "toastmasters-agenda-share:"
 
 type Tab = "settings" | "preview"
 
@@ -70,20 +69,34 @@ export default function Page() {
   }
 
   async function saveAndShare() {
-    const shareId = `agenda-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
-    const payload = JSON.stringify(normalizeSettings(settings))
-    window.localStorage.setItem(`${SHARE_STORAGE_PREFIX}${shareId}`, payload)
-
-    const url = `${window.location.origin}/share?agendaId=${encodeURIComponent(shareId)}`
-
     try {
-      await navigator.clipboard.writeText(url)
-    } catch {
-      // ignore clipboard errors and still open the page
-    }
+      // Save to Netlify Blobs via API
+      const response = await fetch("/api/share/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settings),
+      })
 
-    window.open(url, "_blank", "noopener,noreferrer")
-    setShareMessage("Shareable agenda page created. The link has been copied to your clipboard.")
+      if (!response.ok) {
+        setShareMessage("Failed to create shareable link. Please try again.")
+        return
+      }
+
+      const { shareId } = (await response.json()) as { shareId: string }
+      const url = `${window.location.origin}/share?id=${encodeURIComponent(shareId)}`
+
+      try {
+        await navigator.clipboard.writeText(url)
+      } catch {
+        // ignore clipboard errors and still open the page
+      }
+
+      window.open(url, "_blank", "noopener,noreferrer")
+      setShareMessage("Shareable agenda page created. The link has been copied to your clipboard.")
+    } catch (error) {
+      console.error("Error creating share link:", error)
+      setShareMessage("Failed to create shareable link. Please try again.")
+    }
   }
 
   return (
