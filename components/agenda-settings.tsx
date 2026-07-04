@@ -384,7 +384,13 @@ function SessionFields({
 
   return (
     <>
-      <ActivitySelector session={session} isCustom={isCustom} onUpdate={onUpdate} compact={inSection} />
+      <ActivitySelector
+        session={session}
+        isCustom={isCustom}
+        onUpdate={onUpdate}
+        compact={inSection}
+        onActivityChange={handleActivityChange}
+      />
 
       {sectionKey === "prepared-speeches" && (
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -465,11 +471,13 @@ function ActivitySelector({
   isCustom,
   onUpdate,
   compact = false,
+  onActivityChange,
 }: {
   session: Session
   isCustom: boolean
   onUpdate: (partial: Partial<Session>) => void
   compact?: boolean
+  onActivityChange: (nextActivity: string) => void
 }) {
   return (
     <div className={`flex min-w-0 flex-col gap-2 ${compact ? "sm:flex-row sm:items-center" : "sm:flex-row"}`}>
@@ -480,7 +488,7 @@ function ActivitySelector({
           if (e.target.value === CUSTOM_VALUE) {
             onUpdate({ activity: "" })
           } else {
-            handleActivityChange(e.target.value)
+            onActivityChange(e.target.value)
           }
         }}
       >
