@@ -737,32 +737,20 @@ function ClubInfoBlock({
   )
 }
 
-// QR image upload field — stores the image as a data URL for persistence
+// QR image display field — read-only display, no upload
 function QrUpload({
   label,
   value,
-  onChange,
 }: {
   label: string
   value: string
-  onChange: (dataUrl: string) => void
+  onChange?: (dataUrl: string) => void
 }) {
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => onChange(typeof reader.result === "string" ? reader.result : "")
-    reader.readAsDataURL(file)
-    e.target.value = ""
-  }
-
   return (
     <div className="flex flex-col gap-1.5">
       <span className="text-sm font-medium text-foreground">{label}</span>
       <div className="flex items-center gap-3">
-        <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-md border border-dashed border-input bg-background">
+        <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-background">
           {value ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={value || "/placeholder.svg"} alt={`${label} preview`} className="size-full object-contain" />
@@ -771,17 +759,7 @@ function QrUpload({
           )}
         </div>
         <div className="flex flex-col gap-2">
-          <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
-          <Button type="button" size="sm" variant="outline" onClick={() => inputRef.current?.click()}>
-            <Upload className="size-4" aria-hidden="true" />
-            Upload
-          </Button>
-          {value && (
-            <Button type="button" size="sm" variant="ghost" onClick={() => onChange("")}>
-              <X className="size-4" aria-hidden="true" />
-              Remove
-            </Button>
-          )}
+          <p className="text-sm text-muted-foreground">Static QR code</p>
         </div>
       </div>
     </div>

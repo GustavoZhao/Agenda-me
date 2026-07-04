@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Eye, Moon, Printer, RotateCcw, Save, Settings2, SunMedium } from "lucide-react"
 
 const STORAGE_KEY = "toastmasters-agenda-v1"
+const SHARE_STORAGE_PREFIX = "toastmasters-agenda-share:"
 
 type Tab = "settings" | "preview"
 
@@ -69,8 +70,11 @@ export default function Page() {
   }
 
   async function saveAndShare() {
-    const encoded = encodeAgendaSettings(settings)
-    const url = `${window.location.origin}/share?agenda=${encoded}`
+    const shareId = `agenda-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+    const payload = JSON.stringify(normalizeSettings(settings))
+    window.localStorage.setItem(`${SHARE_STORAGE_PREFIX}${shareId}`, payload)
+
+    const url = `${window.location.origin}/share?agendaId=${encodeURIComponent(shareId)}`
 
     try {
       await navigator.clipboard.writeText(url)

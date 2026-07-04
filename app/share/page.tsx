@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { AgendaPreview } from "@/components/agenda-preview"
-import { decodeAgendaSettings, type AgendaSettings, DEFAULT_SETTINGS } from "@/lib/agenda"
+import { decodeAgendaSettings, type AgendaSettings, DEFAULT_SETTINGS, normalizeSettings } from "@/lib/agenda"
 
 function SharePageContent() {
   const searchParams = useSearchParams()
@@ -11,8 +11,26 @@ function SharePageContent() {
   const [error, setError] = useState<string | null>(null)
 
   const encoded = searchParams.get("agenda")
+  const agendaId = searchParams.get("agendaId")
 
   useEffect(() => {
+    if (agendaId) {
+      const stored = window.localStorage.getItem(`toastmasters-agenda-share:${agendaId}`)
+      if (!stored) {
+        setError("The shared agenda link is invalid or has expired.")
+        return
+      }
+
+      try {
+        const parsed = JSON.parse(stored) as Partial<AgendaSettings>
+        setSettings(normalizeSettings(parsed))
+        return
+      } catch {
+        setError("The shared agenda data could not be read.")
+        return
+      }
+    }
+
     if (!encoded) {
       setError("No agenda data was provided in the link.")
       return
@@ -25,7 +43,7 @@ function SharePageContent() {
     }
 
     setSettings(decoded)
-  }, [encoded])
+  }, [agendaId, encoded])
 
   const title = useMemo(() => settings.meetingTitle || "Meeting Agenda", [settings.meetingTitle])
 
