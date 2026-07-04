@@ -1,3 +1,8 @@
 allowBuilds:
-  msw: set this to true or false
-  sharp: set this to true or false
+  core-js: true
+  msw: true
+  sharp: true
+onlyBuiltDependencies:
+  - core-js
+  - msw
+  - sharp
