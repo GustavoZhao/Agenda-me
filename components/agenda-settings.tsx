@@ -1,16 +1,31 @@
 "use client"
 
 import type React from "react"
-import { useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import {
   ACTIVITY_OPTIONS,
+  applyAgendaTemplateImport,
+  BOOK_CLUB_ACTIVITY,
+  BOOK_CLUB_CLOSING_REFLECTION_ACTIVITY,
+  BOOK_CLUB_DISCUSSION_ACTIVITY,
+  BOOK_CLUB_GRAMMARIAN_REPORT_ACTIVITY,
+  BOOK_CLUB_MINI_FEEDBACK_ACTIVITY,
+  BOOK_CLUB_TABLE_TOPICS_ACTIVITY,
   type AgendaSettings,
   type ClubInfo,
+  findCredentialForMemberName,
   groupSessionsForDisplay,
+  MEMBERSHIP_CSV_PATH,
+  type MembershipCredentialEntry,
+  normalizeCredentialTitle,
   OFFICER_FIELDS,
   patchSession,
   type Session,
   makeSession,
+  TABLE_TOPICS_EVALUATION_ACTIVITY,
+  TITLE_OTHER_OPTION,
+  TITLE_PRESET_OPTIONS,
+  parseMembershipCredentialCsv,
   sortSessions,
 } from "@/lib/agenda"
 import { Button } from "@/components/ui/button"
@@ -25,7 +40,46 @@ const CUSTOM_VALUE = "__custom__"
 
 export function AgendaSettingsPanel({ settings, onChange }: Props) {
   const [dragIndex, setDragIndex] = useState<number | null>(null)
-  const [overIndex, setOverIndex] = useState<number | null>(null)
+  const [overDropIndex, setOverDropIndex] = useState<number | null>(null)
+  const [credentialEntries, setCredentialEntries] = useState<MembershipCredentialEntry[]>([])
+  const [initialCredentialBackfillDone, setInitialCredentialBackfillDone] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadCredentials() {
+      try {
+        const response = await fetch(MEMBERSHIP_CSV_PATH)
+        if (!response.ok) return
+        const csv = await response.text()
+        if (cancelled) return
+        setCredentialEntries(parseMembershipCredentialCsv(csv))
+      } catch {
+        // keep manual entry if membership file is unavailable
+      }
+    }
+
+    loadCredentials()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (credentialEntries.length === 0 || initialCredentialBackfillDone) return
+
+    let changed = false
+    const nextSessions = settings.sessions.map((session) => {
+      if (session.title?.trim()) return session
+      const credential = findCredentialForMemberName(session.presenter, credentialEntries)
+      if (!credential) return session
+      changed = true
+      return { ...session, title: normalizeCredentialTitle(credential) }
+    })
+
+    if (changed) update({ sessions: nextSessions })
+    setInitialCredentialBackfillDone(true)
+  }, [credentialEntries, initialCredentialBackfillDone])
 
   function update(partial: Partial<AgendaSettings>) {
     onChange({ ...settings, ...partial })
@@ -40,8 +94,116 @@ export function AgendaSettingsPanel({ settings, onChange }: Props) {
   }
 
   function updateSession(id: string, partial: Partial<Session>) {
+    const current = settings.sessions.find((session) => session.id === id)
+    let nextPartial = partial
+
+    const nextPresenter = partial.presenter?.trim()
+    const titleAlreadyProvided = partial.title !== undefined
+    const currentTitle = current?.title?.trim() ?? ""
+    if (
+      current &&
+      nextPresenter &&
+      !titleAlreadyProvided &&
+      !currentTitle &&
+      credentialEntries.length > 0
+    ) {
+      const credential = findCredentialForMemberName(nextPresenter, credentialEntries)
+      if (credential) {
+        nextPartial = { ...partial, title: normalizeCredentialTitle(credential) }
+      }
+    }
+
     update({
-      sessions: settings.sessions.map((s) => (s.id === id ? patchSession(s, partial) : s)),
+      sessions: settings.sessions.map((s) => (s.id === id ? patchSession(s, nextPartial) : s)),
+    })
+  }
+
+  function getDefaultPresenter(activity: string, currentPresenter: string): string {
+    if (activity === "Introduction of the Grammarian") return currentPresenter || "Grammarian"
+    if (activity === "Grammarian's Report") return currentPresenter || "Grammarian"
+    if (activity === "Introduction of the Timer") return currentPresenter || "Timer"
+    if (activity === "Timer's Report") return currentPresenter || "Timer"
+    if (activity === "Table Topics") return currentPresenter || "Table Topics Master"
+    if (activity === BOOK_CLUB_DISCUSSION_ACTIVITY || activity === BOOK_CLUB_TABLE_TOPICS_ACTIVITY) {
+      return currentPresenter || "Book Club Master"
+    }
+    if (activity === BOOK_CLUB_MINI_FEEDBACK_ACTIVITY) return currentPresenter || "Book Club Master"
+    if (activity === BOOK_CLUB_CLOSING_REFLECTION_ACTIVITY) return currentPresenter || "Book Club Master"
+    if (activity === BOOK_CLUB_GRAMMARIAN_REPORT_ACTIVITY) return currentPresenter || "Grammarian"
+    if (activity === TABLE_TOPICS_EVALUATION_ACTIVITY) return currentPresenter || "Table Topics Evaluator"
+    return currentPresenter
+  }
+
+  function changeSessionActivity(sessionId: string, index: number, nextActivity: string) {
+    const current = settings.sessions[index]
+    if (!current || current.id !== sessionId) return
+
+    if (nextActivity === BOOK_CLUB_ACTIVITY) {
+      const retained = settings.sessions.filter((session, i) => {
+        if (i === index) return true
+        return session.activity !== "Table Topics"
+      })
+
+      const replacementIndex = retained.findIndex((session) => session.id === sessionId)
+      if (replacementIndex === -1) return
+
+      const sharedPresenter = current.presenter || "Book Club Master"
+      const discussion = patchSession(current, {
+        activity: BOOK_CLUB_DISCUSSION_ACTIVITY,
+        presenter: sharedPresenter,
+        durationMin: 25,
+        durationMax: 25,
+        buffer: 0,
+      })
+      const tableTopics = makeSession({
+        activity: BOOK_CLUB_TABLE_TOPICS_ACTIVITY,
+        presenter: sharedPresenter,
+        title: current.title,
+        tableTopicsTheme: current.tableTopicsTheme,
+        participantTimeLimit: current.participantTimeLimit ?? 2,
+        durationMin: 25,
+        durationMax: 25,
+        buffer: 1,
+      })
+      const miniFeedback = makeSession({
+        activity: BOOK_CLUB_MINI_FEEDBACK_ACTIVITY,
+        presenter: sharedPresenter,
+        durationMin: 3,
+        durationMax: 4,
+        buffer: 1,
+      })
+      const grammarianReport = makeSession({
+        activity: BOOK_CLUB_GRAMMARIAN_REPORT_ACTIVITY,
+        presenter: "Grammarian",
+        durationMin: 2,
+        durationMax: 2,
+        buffer: 1,
+      })
+      const closingReflection = makeSession({
+        activity: BOOK_CLUB_CLOSING_REFLECTION_ACTIVITY,
+        presenter: sharedPresenter,
+        durationMin: 5,
+        durationMax: 5,
+        buffer: current.buffer,
+      })
+
+      const nextSessions = [...retained]
+      nextSessions.splice(
+        replacementIndex,
+        1,
+        discussion,
+        tableTopics,
+        miniFeedback,
+        grammarianReport,
+        closingReflection,
+      )
+      update({ sessions: nextSessions })
+      return
+    }
+
+    updateSession(sessionId, {
+      activity: nextActivity,
+      presenter: getDefaultPresenter(nextActivity, current.presenter),
     })
   }
 
@@ -66,10 +228,11 @@ export function AgendaSettingsPanel({ settings, onChange }: Props) {
   }
 
   function reorder(from: number, to: number) {
-    if (from === to) return
+    if (from === to || from + 1 === to) return
     const next = [...settings.sessions]
     const [moved] = next.splice(from, 1)
-    next.splice(to, 0, moved)
+    const target = from < to ? to - 1 : to
+    next.splice(target, 0, moved)
     update({ sessions: next })
   }
 
@@ -87,6 +250,9 @@ export function AgendaSettingsPanel({ settings, onChange }: Props) {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Smart import */}
+      <SmartImportBlock settings={settings} onChange={onChange} />
+
       {/* Club information (collapsible, collapsed by default) */}
       <ClubInfoBlock settings={settings} updateClubInfo={updateClubInfo} />
 
@@ -116,6 +282,20 @@ export function AgendaSettingsPanel({ settings, onChange }: Props) {
         </div>
 
         <div className="flex flex-col">
+          {settings.sessions.length > 0 && (
+            <RowGap
+              onAdd={() => insertSession(0)}
+              dropIndex={0}
+              activeDragIndex={dragIndex}
+              isDropTarget={overDropIndex === 0}
+              onDragOverDrop={() => setOverDropIndex(0)}
+              onDropAt={() => {
+                if (dragIndex !== null) reorder(dragIndex, 0)
+                setDragIndex(null)
+                setOverDropIndex(null)
+              }}
+            />
+          )}
           {groupSessionsForDisplay(settings.sessions).map((group) => (
             <div key={`${group.key}-${group.items[0]?.index ?? 0}`} className="mb-3 last:mb-0">
               {group.divider && <SectionDivider label={group.divider} />}
@@ -130,31 +310,14 @@ export function AgendaSettingsPanel({ settings, onChange }: Props) {
                   const sectionKey = group.key
                   const isCustom = !ACTIVITY_OPTIONS.includes(session.activity as (typeof ACTIVITY_OPTIONS)[number])
                   const isDragging = dragIndex === index
-                  const isOver = overIndex === index && dragIndex !== null && dragIndex !== index
                   return (
                     <div key={session.id}>
-                      <RowGap
-                        onAdd={() => insertSession(index)}
-                        onCopy={index > 0 ? () => copyInto(index - 1, index) : undefined}
-                      />
-
                       <div
                         className={`group relative rounded-lg border p-3 transition-colors ${
                           group.divider
                             ? "border-border/60 bg-background/90"
                             : "border-border bg-background"
-                        } ${isDragging ? "border-primary opacity-50" : ""} ${isOver ? "border-primary ring-2 ring-ring/30" : ""}`}
-                        onDragOver={(e) => {
-                          if (dragIndex === null) return
-                          e.preventDefault()
-                          setOverIndex(index)
-                        }}
-                        onDrop={(e) => {
-                          e.preventDefault()
-                          if (dragIndex !== null) reorder(dragIndex, index)
-                          setDragIndex(null)
-                          setOverIndex(null)
-                        }}
+                        } ${isDragging ? "border-primary opacity-50" : ""}`}
                       >
                         <div className="flex items-start gap-2">
                           <button
@@ -163,7 +326,7 @@ export function AgendaSettingsPanel({ settings, onChange }: Props) {
                             onDragStart={() => setDragIndex(index)}
                             onDragEnd={() => {
                               setDragIndex(null)
-                              setOverIndex(null)
+                              setOverDropIndex(null)
                             }}
                             className="mt-1 shrink-0 cursor-grab touch-none rounded p-0.5 text-muted-foreground hover:bg-muted active:cursor-grabbing"
                             aria-label="Drag to reorder"
@@ -179,6 +342,7 @@ export function AgendaSettingsPanel({ settings, onChange }: Props) {
                               session={session}
                               sectionKey={sectionKey}
                               isCustom={isCustom}
+                              onActivityChange={(nextActivity) => changeSessionActivity(session.id, index, nextActivity)}
                               onUpdate={(partial) => updateSession(session.id, partial)}
                             />
                           </div>
@@ -196,9 +360,19 @@ export function AgendaSettingsPanel({ settings, onChange }: Props) {
                         </div>
                       </div>
 
-                      {index === settings.sessions.length - 1 && (
-                        <RowGap onAdd={() => insertSession(index + 1)} onCopy={() => copyInto(index, index + 1)} />
-                      )}
+                      <RowGap
+                        onAdd={() => insertSession(index + 1)}
+                        onCopy={() => copyInto(index, index + 1)}
+                        dropIndex={index + 1}
+                        activeDragIndex={dragIndex}
+                        isDropTarget={overDropIndex === index + 1}
+                        onDragOverDrop={() => setOverDropIndex(index + 1)}
+                        onDropAt={() => {
+                          if (dragIndex !== null) reorder(dragIndex, index + 1)
+                          setDragIndex(null)
+                          setOverDropIndex(null)
+                        }}
+                      />
                     </div>
                   )
                 })}
@@ -214,11 +388,148 @@ export function AgendaSettingsPanel({ settings, onChange }: Props) {
   )
 }
 
-// Insert zone between sessions: mostly invisible, reveals Add / Copy buttons on hover
-function RowGap({ onAdd, onCopy }: { onAdd: () => void; onCopy?: () => void }) {
+function SmartImportBlock({ settings, onChange }: { settings: AgendaSettings; onChange: (next: AgendaSettings) => void }) {
+  const [templateText, setTemplateText] = useState("")
+  const [statusMessage, setStatusMessage] = useState<string | null>(null)
+  const [pendingImport, setPendingImport] = useState<{
+    settings: AgendaSettings
+    matchedFields: string[]
+    previewItems: { label: string; value: string }[]
+  } | null>(null)
+
+  function handleAnalyze() {
+    const pasted = templateText.trim()
+    if (!pasted) {
+      setPendingImport(null)
+      setStatusMessage("Paste the role announcement first, then analyze it.")
+      return
+    }
+
+    const result = applyAgendaTemplateImport(settings, pasted)
+    if (result.matchedFields.length === 0) {
+      setPendingImport(null)
+      setStatusMessage("No recognizable meeting fields were found in that text.")
+      return
+    }
+
+    setPendingImport(result)
+    setStatusMessage(`Found ${result.matchedFields.join(", ")}. Review the preview below, then apply.`)
+  }
+
+  function handleApply() {
+    if (!pendingImport) return
+    onChange(pendingImport.settings)
+    setStatusMessage(`Applied ${pendingImport.matchedFields.join(", ")}.`)
+    setPendingImport(null)
+  }
+
+  function handleReset() {
+    setTemplateText("")
+    setStatusMessage(null)
+    setPendingImport(null)
+  }
+
   return (
-    <div className="group/gap relative flex h-4 items-center justify-center">
-      <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-transparent transition-colors group-hover/gap:bg-border" />
+    <section className="rounded-xl border border-primary/20 bg-card p-5 shadow-sm">
+      <div className="mb-4 flex flex-col gap-1">
+        <h2 className="text-lg font-semibold text-card-foreground">Smart Import</h2>
+        <p className="text-sm text-muted-foreground">
+          Paste a role announcement or signup post here, then auto-fill the meeting date, time, and matching roles.
+        </p>
+      </div>
+
+      <Field label="Paste role template" hint="The parser understands the role list, date/time line, and meeting theme.">
+        <textarea
+          className={`${inputClass} min-h-40 resize-y`}
+          value={templateText}
+          onChange={(e) => setTemplateText(e.target.value)}
+          placeholder={`Paste text like:\nBook your role for BRICS+’s meeting next Saturday!\nJuly 11 | 19:30 - 21:05 (UTC+8)\n...`}
+        />
+      </Field>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Button type="button" size="sm" onClick={handleAnalyze}>
+          <Upload className="size-4" aria-hidden="true" />
+          Analyze
+        </Button>
+        <Button type="button" size="sm" onClick={handleApply} disabled={!pendingImport}>
+          Apply Changes
+        </Button>
+        <Button type="button" size="sm" variant="outline" onClick={handleReset}>
+          <X className="size-4" aria-hidden="true" />
+          Clear
+        </Button>
+      </div>
+
+      {statusMessage ? <p className="mt-3 text-sm text-muted-foreground">{statusMessage}</p> : null}
+
+      {pendingImport ? (
+        <div className="mt-4 rounded-lg border border-border bg-background/70 p-4">
+          <h3 className="text-sm font-semibold text-foreground">Preview</h3>
+          <dl className="mt-3 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+            {pendingImport.previewItems.map((item) => (
+              <PreviewItem key={`${item.label}-${item.value}`} label={item.label} value={item.value} />
+            ))}
+          </dl>
+        </div>
+      ) : null}
+    </section>
+  )
+}
+
+function PreviewItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-border/70 bg-card px-3 py-2">
+      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dd className="mt-1 text-sm text-foreground">{value}</dd>
+    </div>
+  )
+}
+
+// Insert zone between sessions: reveals Add / Copy and acts as drag insertion target
+function RowGap({
+  onAdd,
+  onCopy,
+  dropIndex,
+  activeDragIndex,
+  isDropTarget,
+  onDragOverDrop,
+  onDropAt,
+}: {
+  onAdd: () => void
+  onCopy?: () => void
+  dropIndex?: number
+  activeDragIndex?: number | null
+  isDropTarget?: boolean
+  onDragOverDrop?: () => void
+  onDropAt?: () => void
+}) {
+  const dragFrom = activeDragIndex ?? null
+  const canDropHere =
+    dragFrom !== null &&
+    dropIndex !== undefined &&
+    dragFrom !== dropIndex &&
+    dragFrom + 1 !== dropIndex
+
+  return (
+    <div
+      className="group/gap relative flex h-5 items-center justify-center"
+      onDragOver={(e) => {
+        if (!canDropHere) return
+        e.preventDefault()
+        onDragOverDrop?.()
+      }}
+      onDrop={(e) => {
+        if (!canDropHere) return
+        e.preventDefault()
+        onDropAt?.()
+      }}
+    >
+      <div
+        className={`absolute inset-x-0 top-1/2 h-px -translate-y-1/2 transition-colors ${
+          isDropTarget ? "bg-primary" : "bg-transparent group-hover/gap:bg-border"
+        }`}
+      />
       <div className="relative flex items-center gap-1 opacity-0 transition-opacity group-hover/gap:opacity-100">
         <button
           type="button"
@@ -361,26 +672,16 @@ function SessionFields({
   session,
   sectionKey,
   isCustom,
+  onActivityChange,
   onUpdate,
 }: {
   session: Session
   sectionKey: string
   isCustom: boolean
+  onActivityChange: (nextActivity: string) => void
   onUpdate: (partial: Partial<Session>) => void
 }) {
   const inSection = sectionKey !== "general"
-
-  function handleActivityChange(nextActivity: string) {
-    const nextPresenter = (() => {
-      if (nextActivity === "Introduction of the Grammarian") return session.presenter || "Grammarian"
-      if (nextActivity === "Grammarian's Report") return session.presenter || "Grammarian"
-      if (nextActivity === "Introduction of the Timer") return session.presenter || "Timer"
-      if (nextActivity === "Timer's Report") return session.presenter || "Timer"
-      return session.presenter
-    })()
-
-    onUpdate({ activity: nextActivity, presenter: nextPresenter })
-  }
 
   return (
     <>
@@ -389,11 +690,11 @@ function SessionFields({
         isCustom={isCustom}
         onUpdate={onUpdate}
         compact={inSection}
-        onActivityChange={handleActivityChange}
+        onActivityChange={onActivityChange}
       />
 
       {sectionKey === "prepared-speeches" && (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           <input
             className={`${inputClass} min-w-0`}
             placeholder="Speech Title"
@@ -406,12 +707,59 @@ function SessionFields({
             value={session.presenter}
             onChange={(e) => onUpdate({ presenter: e.target.value })}
           />
+          <TitleField value={session.title ?? ""} onChange={(title) => onUpdate({ title })} />
         </div>
+      )}
+
+      {sectionKey === "book-club" && (
+        <>
+          {session.activity === BOOK_CLUB_TABLE_TOPICS_ACTIVITY ? (
+            <>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <input
+                  className={`${inputClass} min-w-0`}
+                  placeholder="Table Topics Theme"
+                  value={session.tableTopicsTheme ?? ""}
+                  onChange={(e) => onUpdate({ tableTopicsTheme: e.target.value })}
+                />
+                <input
+                  className={`${inputClass} min-w-0`}
+                  placeholder="Book Club Master"
+                  value={session.presenter}
+                  onChange={(e) => onUpdate({ presenter: e.target.value })}
+                />
+                <TitleField value={session.title ?? ""} onChange={(title) => onUpdate({ title })} />
+              </div>
+              <label className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                <span>Time per participant</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={0.5}
+                  className={`${inputClass} w-20`}
+                  value={session.participantTimeLimit ?? 2}
+                  onChange={(e) => onUpdate({ participantTimeLimit: Math.max(0, Number(e.target.value) || 0) })}
+                />
+                <span>min</span>
+              </label>
+            </>
+          ) : (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <input
+                className={`${inputClass} min-w-0`}
+                placeholder="Book Club Master"
+                value={session.presenter}
+                onChange={(e) => onUpdate({ presenter: e.target.value })}
+              />
+              <TitleField value={session.title ?? ""} onChange={(title) => onUpdate({ title })} />
+            </div>
+          )}
+        </>
       )}
 
       {sectionKey === "table-topics" && (
         <>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             <input
               className={`${inputClass} min-w-0`}
               placeholder="Table Topics Theme"
@@ -424,6 +772,7 @@ function SessionFields({
               value={session.presenter}
               onChange={(e) => onUpdate({ presenter: e.target.value })}
             />
+            <TitleField value={session.title ?? ""} onChange={(title) => onUpdate({ title })} />
           </div>
           <label className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             <span>Time per participant</span>
@@ -441,28 +790,86 @@ function SessionFields({
       )}
 
       {sectionKey === "general" && (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
           <input
             className={`${inputClass} min-w-0`}
             placeholder="Presenter / Role"
             value={session.presenter}
             onChange={(e) => onUpdate({ presenter: e.target.value })}
           />
+          <TitleField value={session.title ?? ""} onChange={(title) => onUpdate({ title })} />
           <BufferField session={session} onUpdate={onUpdate} inline />
         </div>
       )}
 
       {(sectionKey === "break" || sectionKey === "evaluations" || sectionKey === "closing") && (
-        <input
-          className={`${inputClass} min-w-0`}
-          placeholder="Presenter / Role"
-          value={session.presenter}
-          onChange={(e) => onUpdate({ presenter: e.target.value })}
-        />
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <input
+            className={`${inputClass} min-w-0`}
+            placeholder="Presenter / Role"
+            value={session.presenter}
+            onChange={(e) => onUpdate({ presenter: e.target.value })}
+          />
+          <TitleField value={session.title ?? ""} onChange={(title) => onUpdate({ title })} />
+        </div>
       )}
 
       <DurationRangeFields session={session} onUpdate={onUpdate} showBuffer={sectionKey !== "general"} />
     </>
+  )
+}
+
+function TitleField({ value, onChange }: { value: string; onChange: (next: string) => void }) {
+  const trimmed = value.trim()
+  const matchedPreset = TITLE_PRESET_OPTIONS.find((option) => option.value.toLowerCase() === trimmed.toLowerCase()) ?? null
+  const isCustomTitle = !!trimmed && !matchedPreset
+  const [forceOtherMode, setForceOtherMode] = useState(isCustomTitle)
+
+  useEffect(() => {
+    setForceOtherMode(isCustomTitle)
+  }, [isCustomTitle])
+
+  const selectValue = forceOtherMode ? TITLE_OTHER_OPTION : !trimmed ? "" : matchedPreset?.value ?? TITLE_OTHER_OPTION
+  const showCustomInput = forceOtherMode || isCustomTitle
+
+  return (
+    <div className="flex min-w-0 flex-col gap-2">
+      <select
+        className={`${inputClass} min-w-0`}
+        value={selectValue}
+        onChange={(e) => {
+          const next = e.target.value
+          if (next === "") {
+            setForceOtherMode(false)
+            onChange("")
+            return
+          }
+          if (next === TITLE_OTHER_OPTION) {
+            setForceOtherMode(true)
+            if (matchedPreset) onChange("")
+            return
+          }
+          setForceOtherMode(false)
+          onChange(next)
+        }}
+      >
+        <option value="">No title</option>
+        {TITLE_PRESET_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+        <option value={TITLE_OTHER_OPTION}>Other</option>
+      </select>
+      {showCustomInput && (
+        <input
+          className={`${inputClass} min-w-0`}
+          placeholder="Custom title"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      )}
+    </div>
   )
 }
 
@@ -522,6 +929,8 @@ function DurationRangeFields({
   showBuffer?: boolean
   inline?: boolean
 }) {
+  const MIN_GAP = 0.5
+
   const durationFields = (
     <div className="flex flex-col gap-2">
       <label className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
@@ -534,7 +943,13 @@ function DurationRangeFields({
           value={session.durationMin}
           onChange={(e) => {
             const nextMin = Math.max(0, Number(e.target.value) || 0)
-            onUpdate({ durationMin: nextMin, durationMax: Math.max(nextMin, session.durationMax) })
+            onUpdate({ durationMin: nextMin })
+          }}
+          onBlur={(e) => {
+            const nextMin = Math.max(0, Number(e.target.value) || 0)
+            if (session.durationMax <= nextMin) {
+              onUpdate({ durationMin: nextMin, durationMax: nextMin + MIN_GAP })
+            }
           }}
         />
         <span>–</span>
@@ -546,7 +961,13 @@ function DurationRangeFields({
           value={session.durationMax}
           onChange={(e) => {
             const nextMax = Math.max(0, Number(e.target.value) || 0)
-            onUpdate({ durationMax: Math.max(nextMax, session.durationMin) })
+            onUpdate({ durationMax: nextMax })
+          }}
+          onBlur={(e) => {
+            const nextMax = Math.max(0, Number(e.target.value) || 0)
+            if (nextMax <= session.durationMin) {
+              onUpdate({ durationMax: session.durationMin + MIN_GAP })
+            }
           }}
         />
         <span>min</span>

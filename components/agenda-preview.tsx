@@ -11,6 +11,7 @@ import {
   type ComputedRow,
   formatDuration,
   formatDurationRange,
+  getPresetTitleBadge,
   getMeetingTimeConversions,
   getSectionRoleLabel,
   getSectionRowLabel,
@@ -118,6 +119,7 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
                     <th className="px-4 py-2 font-medium">Time</th>
                     <th className="px-4 py-2 font-medium">Session</th>
                     <th className="px-4 py-2 font-medium">Role</th>
+                    <th className="px-4 py-2 font-medium">Title</th>
                     <th className="px-4 py-2 text-right font-medium">
                       <div className="flex flex-col items-end gap-1">
                         <span>Duration</span>
@@ -152,7 +154,7 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
                   })}
                   {previewBlocks.length === 0 && (
                     <tr>
-                      <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">
+                      <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
                         No sessions yet. Add them in the settings panel.
                       </td>
                     </tr>
@@ -246,7 +248,7 @@ function SectionRows({
   return (
     <>
       <tr className="border-b border-border/60 bg-[#F2DF74]/20">
-        <td colSpan={4} className="px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-foreground">
+        <td colSpan={5} className="px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-foreground">
           {label}
         </td>
       </tr>
@@ -260,6 +262,8 @@ function SectionRows({
 function AgendaRow({ row, sectionKey }: { row: ComputedRow; sectionKey: string | null }) {
   const sessionLabel = getSectionRowLabel(row, sectionKey)
   const roleLabel = getSectionRoleLabel(row, sectionKey)
+  const titleLabel = row.title?.trim() ?? ""
+  const presetTitleBadge = getPresetTitleBadge(titleLabel)
   const isBreak = row.activity === BREAK_ACTIVITY
 
   return (
@@ -269,6 +273,29 @@ function AgendaRow({ row, sectionKey }: { row: ComputedRow; sectionKey: string |
       </td>
       <td className="px-4 py-3 font-medium text-card-foreground">{sessionLabel}</td>
       <td className="px-4 py-3 text-muted-foreground">{roleLabel}</td>
+      <td className="px-4 py-3 text-muted-foreground">
+        {presetTitleBadge ? (
+          <div className="flex items-center gap-2">
+            {presetTitleBadge.kind === "image" ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={presetTitleBadge.src}
+                alt={presetTitleBadge.alt}
+                className="size-8 shrink-0 rounded-md border border-border/50 bg-background p-0.5"
+              />
+            ) : null}
+            {presetTitleBadge.code ? (
+              <span className="inline-flex min-h-7 min-w-11 items-center justify-center rounded-md border border-border/60 bg-secondary px-2 text-xs font-semibold text-foreground">
+                {presetTitleBadge.code}
+              </span>
+            ) : null}
+          </div>
+        ) : titleLabel ? (
+          <span className="min-w-0 text-pretty">{titleLabel}</span>
+        ) : (
+          <span>—</span>
+        )}
+      </td>
       <td className="whitespace-nowrap px-4 py-3 text-right text-muted-foreground">
         {isBreak ? (
           <div className="flex items-center justify-end gap-1.5 text-[10px] text-muted-foreground">
