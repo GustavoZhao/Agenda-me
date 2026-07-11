@@ -77,9 +77,11 @@ export function AgendaSettingsPanel({ settings, onChange }: Props) {
       return { ...session, title: normalizeCredentialTitle(credential) }
     })
 
-    if (changed) update({ sessions: nextSessions })
+    if (changed) {
+      onChange({ ...settings, sessions: nextSessions })
+    }
     setInitialCredentialBackfillDone(true)
-  }, [credentialEntries, initialCredentialBackfillDone])
+  }, [credentialEntries, initialCredentialBackfillDone, onChange, settings])
 
   function update(partial: Partial<AgendaSettings>) {
     onChange({ ...settings, ...partial })

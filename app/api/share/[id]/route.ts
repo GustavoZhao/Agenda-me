@@ -4,6 +4,11 @@ import { NextResponse } from "next/server"
 import type { AgendaSettings } from "@/lib/agenda"
 import { normalizeSettings } from "@/lib/agenda"
 
+function blobPayloadToString(payload: string | ArrayBuffer): string {
+  if (typeof payload === "string") return payload
+  return new TextDecoder().decode(payload)
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -20,7 +25,7 @@ export async function GET(
       )
     }
 
-    const parsed = JSON.parse(data) as Partial<AgendaSettings>
+    const parsed = JSON.parse(blobPayloadToString(data)) as Partial<AgendaSettings>
     const settings = normalizeSettings(parsed)
 
     return NextResponse.json(settings, { status: 200 })

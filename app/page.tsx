@@ -1,27 +1,43 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
+import { useSearchParams } from "next/navigation"
+import Link from "next/link"
 import {
   type AgendaSettings,
   DEFAULT_SETTINGS,
-  encodeAgendaSettings,
   normalizeSettings,
 } from "@/lib/agenda"
 import { AgendaSettingsPanel } from "@/components/agenda-settings"
 import { AgendaPreview } from "@/components/agenda-preview"
 import { Button } from "@/components/ui/button"
-import { Eye, Moon, Printer, RotateCcw, Save, Settings2, SunMedium } from "lucide-react"
+import { Eye, LogIn, LogOut, Moon, Printer, RotateCcw, Save, Settings2, SunMedium } from "lucide-react"
 
 const STORAGE_KEY = "toastmasters-agenda-v1"
 
 type Tab = "settings" | "preview"
 
-export default function Page() {
+type ClubSummary = {
+  role: "owner" | "admin" | "editor" | "viewer"
+  club: {
+    id: string
+    name: string
+  }
+}
+
+function PageContent() {
+  const searchParams = useSearchParams()
   const [settings, setSettings] = useState<AgendaSettings>(DEFAULT_SETTINGS)
   const [tab, setTab] = useState<Tab>("settings")
   const [loaded, setLoaded] = useState(false)
   const [theme, setTheme] = useState<"light" | "dark">("light")
   const [shareMessage, setShareMessage] = useState<string | null>(null)
+  const [currentSlug, setCurrentSlug] = useState<string | null>(null)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [clubs, setClubs] = useState<ClubSummary[]>([])
+  const [activeClubId, setActiveClubId] = useState("")
+
+  const editingSlug = searchParams.get("slug")
 
   // Restore config from local storage
   useEffect(() => {
@@ -62,6 +78,106 @@ export default function Page() {
     window.localStorage.setItem("agenda-theme", theme)
   }, [theme])
 
+  useEffect(() => {
+    async function loadSession() {
+      try {
+        const response = await fetch("/api/me")
+        const data = (await response.json()) as { authenticated: boolean }
+        setIsAuthenticated(data.authenticated)
+      } catch {
+        setIsAuthenticated(false)
+      }
+    }
+
+    loadSession()
+  }, [])
+
+  useEffect(() => {
+    async function loadClubs() {
+      if (!isAuthenticated) return
+
+      try {
+        const clubsResponse = await fetch("/api/clubs")
+        if (!clubsResponse.ok) return
+
+        const clubsData = (await clubsResponse.json()) as { items: ClubSummary[] }
+        setClubs(clubsData.items)
+
+        if (clubsData.items.length === 0) return
+
+        const stored = window.localStorage.getItem("active-club-id")
+        const activeClubId = clubsData.items.find((item) => item.club.id === stored)?.club.id ?? clubsData.items[0].club.id
+        setActiveClubId(activeClubId)
+      } catch {
+        // ignore profile loading errors
+      }
+    }
+
+    loadClubs()
+  }, [isAuthenticated])
+
+  useEffect(() => {
+    async function loadActiveClubProfile() {
+      if (!isAuthenticated || !activeClubId) return
+
+      try {
+
+        const detailResponse = await fetch(`/api/clubs/${encodeURIComponent(activeClubId)}`)
+        if (!detailResponse.ok) return
+
+        const detail = (await detailResponse.json()) as {
+          club: {
+            name: string
+            clubNumber: string | null
+            area: string | null
+            division: string | null
+            district: string | null
+            timezone: string | null
+            wechatQrUrl: string | null
+            whatsappQrUrl: string | null
+          }
+        }
+
+        window.localStorage.setItem("active-club-id", activeClubId)
+
+        setSettings((prev) => ({
+          ...prev,
+          clubInfo: {
+            ...prev.clubInfo,
+            clubName: detail.club.name || prev.clubInfo.clubName,
+            clubNumber: detail.club.clubNumber || prev.clubInfo.clubNumber,
+            area: detail.club.area || prev.clubInfo.area,
+            division: detail.club.division || prev.clubInfo.division,
+            district: detail.club.district || prev.clubInfo.district,
+            vpmWechatQr: detail.club.wechatQrUrl || prev.clubInfo.vpmWechatQr,
+            vpmWhatsappQr: detail.club.whatsappQrUrl || prev.clubInfo.vpmWhatsappQr,
+          },
+        }))
+      } catch {
+        // ignore profile loading errors
+      }
+    }
+
+    loadActiveClubProfile()
+  }, [activeClubId, isAuthenticated])
+
+  useEffect(() => {
+    async function loadForEdit() {
+      if (!editingSlug) return
+      try {
+        const response = await fetch(`/api/agendas/${encodeURIComponent(editingSlug)}`)
+        if (!response.ok) return
+        const data = (await response.json()) as { settings: AgendaSettings }
+        setSettings(normalizeSettings(data.settings))
+        setCurrentSlug(editingSlug)
+      } catch {
+        // ignore load failure
+      }
+    }
+
+    loadForEdit()
+  }, [editingSlug])
+
   function reset() {
     if (confirm("Reset to the default agenda template? Your current changes will be lost.")) {
       setSettings(DEFAULT_SETTINGS)
@@ -69,12 +185,17 @@ export default function Page() {
   }
 
   async function saveAndShare() {
+    if (!isAuthenticated) {
+      setShareMessage("Please sign in first to save your agenda.")
+      return
+    }
+
     try {
-      // Save to Netlify Blobs via API
-      const response = await fetch("/api/share/save", {
-        method: "POST",
+      const slug = currentSlug ?? editingSlug
+      const response = await fetch(slug ? `/api/agendas/${encodeURIComponent(slug)}` : "/api/agendas", {
+        method: slug ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(settings),
+        body: JSON.stringify(slug ? settings : { ...settings, clubId: activeClubId || undefined }),
       })
 
       if (!response.ok) {
@@ -82,8 +203,16 @@ export default function Page() {
         return
       }
 
-      const { shareId } = (await response.json()) as { shareId: string }
-      const url = `${window.location.origin}/share?id=${encodeURIComponent(shareId)}`
+      const payload = (await response.json()) as { slug?: string }
+      const nextSlug = payload.slug ?? slug
+
+      if (!nextSlug) {
+        setShareMessage("Save succeeded but no agenda URL was returned.")
+        return
+      }
+
+      setCurrentSlug(nextSlug)
+      const url = `${window.location.origin}/agenda/${encodeURIComponent(nextSlug)}`
 
       try {
         await navigator.clipboard.writeText(url)
@@ -91,12 +220,19 @@ export default function Page() {
         // ignore clipboard errors and still open the page
       }
 
-      window.open(url, "_blank", "noopener,noreferrer")
-      setShareMessage("Shareable agenda page created. The link has been copied to your clipboard.")
+      setShareMessage("Agenda saved to a fixed link. The link has been copied to your clipboard.")
     } catch (error) {
       console.error("Error creating share link:", error)
-      setShareMessage("Failed to create shareable link. Please try again.")
+      setShareMessage("Failed to save agenda. Please try again.")
     }
+  }
+
+  async function signIn() {
+    window.location.href = "/api/auth/signin"
+  }
+
+  async function signOut() {
+    window.location.href = "/api/auth/signout"
   }
 
   return (
@@ -109,6 +245,33 @@ export default function Page() {
             <p className="text-sm text-muted-foreground">Configure sessions and timing to auto-generate the meeting agenda</p>
           </div>
           <div className="flex items-center gap-2 print:hidden">
+            {isAuthenticated && clubs.length > 0 ? (
+              <select
+                value={activeClubId}
+                onChange={(event) => setActiveClubId(event.target.value)}
+                className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground"
+                aria-label="Active club"
+              >
+                {clubs.map((item) => (
+                  <option key={item.club.id} value={item.club.id}>
+                    {item.club.name} ({item.role})
+                  </option>
+                ))}
+              </select>
+            ) : null}
+            <Link href="/my-agendas">
+              <Button type="button" variant="outline" size="sm">My Agendas</Button>
+            </Link>
+            <Link href="/club-settings">
+              <Button type="button" variant="outline" size="sm">Club Settings</Button>
+            </Link>
+            <Link href="/roster">
+              <Button type="button" variant="outline" size="sm">Roster</Button>
+            </Link>
+            <Button type="button" variant="outline" size="sm" onClick={isAuthenticated ? signOut : signIn}>
+              {isAuthenticated ? <LogOut className="size-4" aria-hidden="true" /> : <LogIn className="size-4" aria-hidden="true" />}
+              {isAuthenticated ? "Sign out" : "Sign in"}
+            </Button>
             <Button type="button" variant="outline" size="sm" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
               {theme === "dark" ? <SunMedium className="size-4" aria-hidden="true" /> : <Moon className="size-4" aria-hidden="true" />}
               {theme === "dark" ? "Light" : "Dark"}
@@ -162,6 +325,14 @@ export default function Page() {
         )}
       </div>
     </main>
+  )
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={<main className="flex min-h-screen items-center justify-center bg-background">Loading...</main>}>
+      <PageContent />
+    </Suspense>
   )
 }
 

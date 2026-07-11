@@ -115,6 +115,11 @@ export function groupSessionsForDisplay(sessions: Session[]): SessionDisplayGrou
 
 // Club officers and shared club-level information (persisted, rarely changes)
 export type ClubInfo = {
+  clubName: string
+  clubNumber: string
+  area: string
+  division: string
+  district: string
   president: string
   vpe: string
   vpm: string
@@ -187,6 +192,11 @@ export function getMeetingTimeConversions(time: string): Array<{ label: string; 
 }
 
 export const DEFAULT_CLUB_INFO: ClubInfo = {
+  clubName: CLUB_NAME,
+  clubNumber: "28678559",
+  area: "K4",
+  division: "K",
+  district: "85",
   president: "Gisele Alvarenga",
   vpe: "Gustavo Zhao",
   vpm: "Francis Liu",

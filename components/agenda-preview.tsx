@@ -1,18 +1,17 @@
 "use client"
 
+import { useState } from "react"
+
 import {
   type AgendaSettings,
   buildPreviewBlocks,
   BREAK_ACTIVITY,
   CLUB_LOGO_SRC,
-  CLUB_META,
   CLUB_MISSION,
-  CLUB_NAME,
   type ComputedRow,
   formatDuration,
   formatDurationRange,
   getPresetTitleBadge,
-  getMeetingTimeConversions,
   getSectionRoleLabel,
   getSectionRowLabel,
   OFFICER_FIELDS,
@@ -31,11 +30,111 @@ const MEMBERSHIP_STEPS = [
   "Pass the Executive Committee's interview",
 ]
 
+const BASE_TIME_ZONE = "Asia/Shanghai"
+
+const TIME_ZONE_OPTIONS = [
+  { value: "Asia/Shanghai", label: "China (UTC+8)" },
+  { value: "America/Sao_Paulo", label: "Brazil (Sao Paulo)" },
+  { value: "Africa/Johannesburg", label: "South Africa (Johannesburg)" },
+  { value: "Europe/Moscow", label: "Russia (Moscow)" },
+  { value: "Asia/Kolkata", label: "India (Kolkata)" },
+  { value: "America/New_York", label: "US Eastern (New York)" },
+  { value: "America/Los_Angeles", label: "US Pacific (Los Angeles)" },
+  { value: "Europe/London", label: "UK (London)" },
+  { value: "Europe/Paris", label: "Central Europe (Paris)" },
+  { value: "Asia/Tokyo", label: "Japan (Tokyo)" },
+  { value: "Australia/Sydney", label: "Australia (Sydney)" },
+] as const
+
+function parseTime(time: string): { hour: number; minute: number } {
+  const [h, m] = time.split(":").map((part) => Number.parseInt(part, 10))
+  return {
+    hour: Number.isNaN(h) ? 0 : h,
+    minute: Number.isNaN(m) ? 0 : m,
+  }
+}
+
+function toDateParts(dateValue: string): { year: number; month: number; day: number } {
+  const parsed = dateValue.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (parsed) {
+    return {
+      year: Number.parseInt(parsed[1], 10),
+      month: Number.parseInt(parsed[2], 10),
+      day: Number.parseInt(parsed[3], 10),
+    }
+  }
+
+  const now = new Date()
+  return {
+    year: now.getUTCFullYear(),
+    month: now.getUTCMonth() + 1,
+    day: now.getUTCDate(),
+  }
+}
+
+function getOffsetMinutes(timeZone: string, date: Date): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    timeZoneName: "shortOffset",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).formatToParts(date)
+
+  const offset = parts.find((part) => part.type === "timeZoneName")?.value ?? "GMT+0"
+  const match = offset.match(/^GMT([+-])(\d{1,2})(?::?(\d{2}))?$/)
+  if (!match) return 0
+
+  const sign = match[1] === "-" ? -1 : 1
+  const hours = Number.parseInt(match[2], 10)
+  const minutes = Number.parseInt(match[3] ?? "0", 10)
+  return sign * (hours * 60 + minutes)
+}
+
+function convertTimeToZone(time: string, meetingDate: string, targetTimeZone: string): string {
+  if (targetTimeZone === BASE_TIME_ZONE) return time
+
+  const { hour, minute } = parseTime(time)
+  const { year, month, day } = toDateParts(meetingDate)
+
+  // Agenda input times are defined in China time (UTC+8).
+  const utcMillis = Date.UTC(year, month - 1, day, hour, minute) - 8 * 60 * 60 * 1000
+  const instant = new Date(utcMillis)
+  const offsetMinutes = getOffsetMinutes(targetTimeZone, instant)
+  const displayTime = new Date(utcMillis + offsetMinutes * 60 * 1000)
+
+  const hh = `${displayTime.getUTCHours()}`.padStart(2, "0")
+  const mm = `${displayTime.getUTCMinutes()}`.padStart(2, "0")
+  return `${hh}:${mm}`
+}
+
 export function AgendaPreview({ settings, fullWidth = false }: Props) {
+  const browserTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
+  const [selectedTimeZone, setSelectedTimeZone] = useState<string>(
+    TIME_ZONE_OPTIONS.some((option) => option.value === browserTimeZone)
+      ? browserTimeZone
+      : BASE_TIME_ZONE
+  )
+
   const { rows, totalDuration, startTime, endTime } = computeSchedule(settings)
-  const previewBlocks = buildPreviewBlocks(rows)
+  const displayRows = rows.map((row) => ({
+    ...row,
+    start: convertTimeToZone(row.start, settings.meetingDate, selectedTimeZone),
+    end: convertTimeToZone(row.end, settings.meetingDate, selectedTimeZone),
+  }))
+
+  const previewBlocks = buildPreviewBlocks(displayRows)
   const { clubInfo } = settings
-  const convertedTimes = getMeetingTimeConversions(settings.startTime)
+  const clubName = clubInfo.clubName?.trim() || "Toastmasters Club"
+  const clubMeta = [
+    clubInfo.area?.trim() ? `Area ${clubInfo.area.trim()}` : "",
+    clubInfo.division?.trim() ? `Division ${clubInfo.division.trim()}` : "",
+    clubInfo.district?.trim() ? `District ${clubInfo.district.trim()}` : "",
+    clubInfo.clubNumber?.trim() ? `Club No. ${clubInfo.clubNumber.trim()}` : "",
+  ]
+    .filter(Boolean)
+    .join(", ")
+  const displayStartTime = convertTimeToZone(startTime, settings.meetingDate, selectedTimeZone)
+  const displayEndTime = convertTimeToZone(endTime, settings.meetingDate, selectedTimeZone)
 
   const dateLabel = settings.meetingDate
     ? new Date(settings.meetingDate + "T00:00:00").toLocaleDateString("en-US", {
@@ -62,10 +161,10 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
             </div>
             <div className="min-w-0">
               <h1 className="text-balance text-xl font-bold leading-tight" style={displayFont}>
-                {CLUB_NAME}
+                {clubName}
               </h1>
               <p className="mt-1 text-pretty text-sm italic text-white/80">{CLUB_MISSION}</p>
-              <p className="mt-1 text-xs font-medium text-white/70">{CLUB_META}</p>
+              <p className="mt-1 text-xs font-medium text-white/70">{clubMeta}</p>
             </div>
           </div>
         </header>
@@ -84,13 +183,20 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
               </div>
             </div>
             <div className="rounded-lg border border-border bg-secondary/50 px-3 py-2">
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Local time conversions</div>
-              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-foreground">
-                {convertedTimes.map((item) => (
-                  <span key={item.label}>
-                    <span className="font-medium text-muted-foreground">{item.label}:</span> {item.time}
-                  </span>
-                ))}
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Display timezone</div>
+              <div className="mt-2 flex items-center gap-2">
+                <select
+                  value={selectedTimeZone}
+                  onChange={(event) => setSelectedTimeZone(event.target.value)}
+                  className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground"
+                  aria-label="Display timezone"
+                >
+                  {TIME_ZONE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>
@@ -105,7 +211,7 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
             {dateLabel && <span className="text-white/80">{dateLabel}</span>}
           </div>
           <span className="text-sm font-medium">
-            {startTime} – {endTime}
+            {displayStartTime} – {displayEndTime}
           </span>
         </div>
 
