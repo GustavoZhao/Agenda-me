@@ -68,7 +68,7 @@ export default function ClubSettingsPage() {
 
   async function loadClubs(preferredClubId?: string) {
     try {
-      const response = await fetch("/api/clubs")
+      const response = await fetch("/api/clubs?scope=all")
       if (!response.ok) return
 
       const data = (await response.json()) as { items: ClubSummary[] }

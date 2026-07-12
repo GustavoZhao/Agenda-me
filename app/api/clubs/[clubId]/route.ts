@@ -14,37 +14,46 @@ export async function GET(
 
   const { clubId } = await params
 
-  const membership = await db.clubMembership.findUnique({
-    where: { clubId_userId: { clubId, userId: session.user.id } },
-    include: {
-      club: {
-        include: {
-          memberships: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  name: true,
-                  email: true,
-                  image: true,
-                },
+  const [membership, club] = await Promise.all([
+    db.clubMembership.findUnique({
+      where: { clubId_userId: { clubId, userId: session.user.id } },
+      select: { role: true },
+    }),
+    db.club.findUnique({
+      where: { id: clubId },
+      include: {
+        memberships: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                image: true,
               },
             },
-            orderBy: { createdAt: "asc" },
           },
+          orderBy: { createdAt: "asc" },
         },
       },
-    },
-  })
+    }),
+  ])
 
-  if (!membership) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  if (!club) {
+    return NextResponse.json({ error: "Club not found" }, { status: 404 })
   }
 
+  const role = membership?.role ?? "viewer"
+  const canManage = membership ? canManageByRole(membership.role) : false
+  const visibleMemberships = canManage ? club.memberships : []
+
   return NextResponse.json({
-    role: membership.role,
-    canManage: canManageByRole(membership.role),
-    club: membership.club,
+    role,
+    canManage,
+    club: {
+      ...club,
+      memberships: visibleMemberships,
+    },
   })
 }
 

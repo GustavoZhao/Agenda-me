@@ -3,10 +3,69 @@ import { db } from "@/lib/db"
 import { getAuthSession } from "@/lib/auth"
 import { makeReadableSlug } from "@/lib/slug"
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await getAuthSession()
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  const { searchParams } = new URL(req.url)
+  const scope = searchParams.get("scope")
+
+  if (scope === "all") {
+    const [memberships, clubs] = await Promise.all([
+      db.clubMembership.findMany({
+        where: { userId: session.user.id },
+        select: {
+          role: true,
+          clubId: true,
+        },
+      }),
+      db.club.findMany({
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          slug: true,
+          name: true,
+          slogan: true,
+          meetingType: true,
+          inPersonAddress: true,
+          onlinePlatform: true,
+          onlineMeetingId: true,
+          onlinePasscode: true,
+          president: true,
+          vpe: true,
+          vpm: true,
+          vppr: true,
+          secretary: true,
+          treasurer: true,
+          saa: true,
+          ipp: true,
+          mentors: true,
+          sponsors: true,
+          advisor: true,
+          participantNotesTitle: true,
+          participantNotesBody: true,
+          vpmContactNote: true,
+          clubNumber: true,
+          area: true,
+          division: true,
+          district: true,
+          timezone: true,
+          wechatQrUrl: true,
+          whatsappQrUrl: true,
+        },
+      }),
+    ])
+
+    const roleByClubId = new Map(memberships.map((membership) => [membership.clubId, membership.role]))
+
+    return NextResponse.json({
+      items: clubs.map((club) => ({
+        role: roleByClubId.get(club.id) ?? "viewer",
+        club,
+      })),
+    })
   }
 
   const memberships = await db.clubMembership.findMany({
