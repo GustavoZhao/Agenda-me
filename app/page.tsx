@@ -186,7 +186,38 @@ function PageContent() {
 
   async function saveAndShare() {
     if (!isAuthenticated) {
-      setShareMessage("Please sign in first to save your agenda.")
+      try {
+        const response = await fetch("/api/share/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(settings),
+        })
+
+        if (!response.ok) {
+          setShareMessage("Failed to create temporary share link. Please try again.")
+          return
+        }
+
+        const payload = (await response.json()) as { shareId?: string }
+        if (!payload.shareId) {
+          setShareMessage("Temporary link was created but no URL was returned.")
+          return
+        }
+
+        const url = `${window.location.origin}/share?id=${encodeURIComponent(payload.shareId)}`
+
+        try {
+          await navigator.clipboard.writeText(url)
+        } catch {
+          // ignore clipboard errors
+        }
+
+        window.open(url, "_blank", "noopener,noreferrer")
+        setShareMessage("Temporary share link created. The link has been copied to your clipboard.")
+      } catch (error) {
+        console.error("Error creating temporary share link:", error)
+        setShareMessage("Failed to create temporary share link. Please try again.")
+      }
       return
     }
 
@@ -228,7 +259,7 @@ function PageContent() {
   }
 
   async function signIn() {
-    window.location.href = "/api/auth/signin"
+    window.location.href = "/auth/signin"
   }
 
   async function signOut() {
@@ -237,7 +268,7 @@ function PageContent() {
 
   return (
     <main className="min-h-screen bg-background">
-      <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
+      <div className="mx-auto max-w-7xl px-2 py-6 sm:px-3 lg:px-4">
         {/* Top toolbar */}
         <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -312,7 +343,7 @@ function PageContent() {
         {/* Content: Settings mode shows the config panel beside a compact preview;
             Preview mode hides the settings panel and shows a full-width agenda. */}
         {tab === "settings" ? (
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-4 lg:grid-cols-[minmax(360px,1fr)_minmax(0,1.35fr)]">
             <div>
               <AgendaSettingsPanel settings={settings} onChange={setSettings} />
             </div>

@@ -2,7 +2,9 @@ import { PrismaAdapter } from "@auth/prisma-adapter"
 import type { DefaultSession, NextAuthOptions } from "next-auth"
 import GoogleProvider from "next-auth/providers/google"
 import GitHubProvider from "next-auth/providers/github"
+import CredentialsProvider from "next-auth/providers/credentials"
 import { getServerSession } from "next-auth"
+import { compare } from "bcryptjs"
 import { db } from "@/lib/db"
 
 declare module "next-auth" {
@@ -17,6 +19,10 @@ export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(db),
   session: {
     strategy: "database",
+  },
+  pages: {
+    signIn: "/auth/signin",
+    error: "/auth/error",
   },
   providers: [
     ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
@@ -35,6 +41,35 @@ export const authOptions: NextAuthOptions = {
           }),
         ]
       : []),
+    CredentialsProvider({
+      name: "Email and Password",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        const email = credentials?.email?.trim().toLowerCase()
+        const password = credentials?.password ?? ""
+
+        if (!email || !password) return null
+
+        const user = await db.user.findUnique({
+          where: { email },
+        })
+
+        if (!user?.passwordHash) return null
+
+        const passwordMatches = await compare(password, user.passwordHash)
+        if (!passwordMatches) return null
+
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          image: user.image,
+        }
+      },
+    }),
   ],
   callbacks: {
     session: ({ session, user }) => ({
