@@ -125,6 +125,8 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
   const previewBlocks = buildPreviewBlocks(displayRows)
   const { clubInfo } = settings
   const clubName = clubInfo.clubName?.trim() || "Toastmasters Club"
+  const clubSlogan = clubInfo.slogan?.trim() || CLUB_MISSION
+  const meetingType = clubInfo.meetingType || "online"
   const clubMeta = [
     clubInfo.area?.trim() ? `Area ${clubInfo.area.trim()}` : "",
     clubInfo.division?.trim() ? `Division ${clubInfo.division.trim()}` : "",
@@ -163,7 +165,7 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
               <h1 className="text-balance text-xl font-bold leading-tight" style={displayFont}>
                 {clubName}
               </h1>
-              <p className="mt-1 text-pretty text-sm italic text-white/80">{CLUB_MISSION}</p>
+              <p className="mt-1 text-pretty text-sm italic text-white/80">{clubSlogan}</p>
               <p className="mt-1 text-xs font-medium text-white/70">{clubMeta}</p>
             </div>
           </div>
@@ -172,15 +174,33 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
         <div className="border-b border-border bg-background/90 px-6 py-4">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="space-y-2">
-              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Zoom Meeting</div>
-              <div className="space-y-1 text-sm text-foreground">
-                <div>
-                  <span className="font-medium text-muted-foreground">Meeting ID:</span> {clubInfo.zoomMeetingId || "286 785 5900"}
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Meeting Information</div>
+
+              {(meetingType === "in_person" || meetingType === "hybrid") && (
+                <div className="space-y-1 text-sm text-foreground">
+                  <div>
+                    <span className="font-medium text-muted-foreground">In-person Address:</span>{" "}
+                    {clubInfo.inPersonAddress?.trim() || "Not set"}
+                  </div>
                 </div>
-                <div>
-                  <span className="font-medium text-muted-foreground">Passcode:</span> {clubInfo.zoomPasscode || "2025BRICS"}
+              )}
+
+              {(meetingType === "online" || meetingType === "hybrid") && (
+                <div className="space-y-1 text-sm text-foreground">
+                  <div>
+                    <span className="font-medium text-muted-foreground">Platform:</span>{" "}
+                    {clubInfo.onlinePlatform?.trim() || "Zoom"}
+                  </div>
+                  <div>
+                    <span className="font-medium text-muted-foreground">Meeting ID:</span>{" "}
+                    {clubInfo.onlineMeetingId?.trim() || "Not set"}
+                  </div>
+                  <div>
+                    <span className="font-medium text-muted-foreground">Passcode:</span>{" "}
+                    {clubInfo.onlinePasscode?.trim() || "Not set"}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
             <div className="rounded-lg border border-border bg-secondary/50 px-3 py-2">
               <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Display timezone</div>
@@ -337,6 +357,10 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
             )}
           </aside>
         </div>
+
+        <footer className="border-t border-border bg-background/70 px-6 py-2 text-center text-[11px] text-muted-foreground">
+          Designed with ♥ by BRICS+ Advanced Online Toastmasters.
+        </footer>
       </article>
     </div>
   )

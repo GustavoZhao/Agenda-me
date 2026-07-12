@@ -71,6 +71,12 @@ export async function PATCH(
   try {
     const body = (await req.json()) as {
       name?: string
+      slogan?: string
+      meetingType?: "in_person" | "online" | "hybrid"
+      inPersonAddress?: string
+      onlinePlatform?: string
+      onlineMeetingId?: string
+      onlinePasscode?: string
       clubNumber?: string
       area?: string
       division?: string
@@ -80,10 +86,40 @@ export async function PATCH(
       whatsappQrUrl?: string | null
     }
 
+    const meetingType = body.meetingType
+    const inPersonAddress = body.inPersonAddress?.trim() || null
+    const onlinePlatform = body.onlinePlatform?.trim() || null
+    const onlineMeetingId = body.onlineMeetingId?.trim() || null
+    const onlinePasscode = body.onlinePasscode?.trim() || null
+
+    if (meetingType === "in_person" || meetingType === "hybrid") {
+      if (!inPersonAddress) {
+        return NextResponse.json(
+          { error: "In-person address is required for In-person or Hybrid meetings." },
+          { status: 400 }
+        )
+      }
+    }
+
+    if (meetingType === "online" || meetingType === "hybrid") {
+      if (!onlinePlatform || !onlineMeetingId || !onlinePasscode) {
+        return NextResponse.json(
+          { error: "Online platform, meeting ID, and passcode are required for Online or Hybrid meetings." },
+          { status: 400 }
+        )
+      }
+    }
+
     const updated = await db.club.update({
       where: { id: clubId },
       data: {
         name: body.name?.trim() || undefined,
+        slogan: body.slogan?.trim() || null,
+        meetingType: meetingType ?? undefined,
+        inPersonAddress: body.inPersonAddress === undefined ? undefined : inPersonAddress,
+        onlinePlatform: body.onlinePlatform === undefined ? undefined : onlinePlatform,
+        onlineMeetingId: body.onlineMeetingId === undefined ? undefined : onlineMeetingId,
+        onlinePasscode: body.onlinePasscode === undefined ? undefined : onlinePasscode,
         clubNumber: body.clubNumber?.trim() || null,
         area: body.area?.trim() || null,
         division: body.division?.trim() || null,
@@ -95,6 +131,12 @@ export async function PATCH(
       select: {
         id: true,
         name: true,
+        slogan: true,
+        meetingType: true,
+        inPersonAddress: true,
+        onlinePlatform: true,
+        onlineMeetingId: true,
+        onlinePasscode: true,
         clubNumber: true,
         area: true,
         division: true,

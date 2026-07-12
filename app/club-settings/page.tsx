@@ -15,6 +15,12 @@ type ClubSummary = {
 type ClubDetail = {
   id: string
   name: string
+  slogan: string | null
+  meetingType: "in_person" | "online" | "hybrid"
+  inPersonAddress: string | null
+  onlinePlatform: string | null
+  onlineMeetingId: string | null
+  onlinePasscode: string | null
   clubNumber: string | null
   area: string | null
   division: string | null
@@ -40,24 +46,31 @@ export default function ClubSettingsPage() {
   const [club, setClub] = useState<ClubDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [newClubName, setNewClubName] = useState("")
   const [message, setMessage] = useState<string | null>(null)
 
-  useEffect(() => {
-    async function loadClubs() {
-      try {
-        const response = await fetch("/api/clubs")
-        if (!response.ok) return
-        const data = (await response.json()) as { items: ClubSummary[] }
-        setClubs(data.items)
+  async function loadClubs(preferredClubId?: string) {
+    try {
+      const response = await fetch("/api/clubs")
+      if (!response.ok) return
 
-        const stored = window.localStorage.getItem("active-club-id")
-        const selected = data.items.find((item) => item.club.id === stored)?.club.id ?? data.items[0]?.club.id ?? ""
-        setActiveClubId(selected)
-      } finally {
-        setLoading(false)
-      }
+      const data = (await response.json()) as { items: ClubSummary[] }
+      setClubs(data.items)
+
+      const stored = window.localStorage.getItem("active-club-id")
+      const selected =
+        data.items.find((item) => item.club.id === preferredClubId)?.club.id ??
+        data.items.find((item) => item.club.id === stored)?.club.id ??
+        data.items[0]?.club.id ??
+        ""
+      setActiveClubId(selected)
+    } finally {
+      setLoading(false)
     }
+  }
 
+  useEffect(() => {
     loadClubs()
   }, [])
 
@@ -85,6 +98,19 @@ export default function ClubSettingsPage() {
 
   async function save() {
     if (!club || !canEdit) return
+
+    if ((club.meetingType === "in_person" || club.meetingType === "hybrid") && !club.inPersonAddress?.trim()) {
+      setMessage("In-person address is required for In-person or Hybrid meetings.")
+      return
+    }
+
+    if (club.meetingType === "online" || club.meetingType === "hybrid") {
+      if (!club.onlinePlatform?.trim() || !club.onlineMeetingId?.trim() || !club.onlinePasscode?.trim()) {
+        setMessage("Online platform, meeting ID, and passcode are required for Online or Hybrid meetings.")
+        return
+      }
+    }
+
     setSaving(true)
     setMessage(null)
 
@@ -101,6 +127,35 @@ export default function ClubSettingsPage() {
     }
 
     setMessage("Club settings updated.")
+  }
+
+  async function createClub() {
+    const name = newClubName.trim()
+    if (!name) {
+      setMessage("Please enter a club name.")
+      return
+    }
+
+    setCreating(true)
+    setMessage(null)
+
+    const response = await fetch("/api/clubs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    })
+
+    if (!response.ok) {
+      setCreating(false)
+      setMessage("Failed to create club.")
+      return
+    }
+
+    const data = (await response.json()) as { id: string }
+    setNewClubName("")
+    await loadClubs(data.id)
+    setCreating(false)
+    setMessage("Club created. You can now edit its profile and upload QR codes.")
   }
 
   async function upload(kind: "wechat_qr" | "whatsapp_qr", event: ChangeEvent<HTMLInputElement>) {
@@ -190,18 +245,79 @@ export default function ClubSettingsPage() {
               </option>
             ))}
           </select>
+
+          <div className="mt-4 border-t border-border pt-4">
+            <label className="mb-2 block text-sm font-medium text-foreground">Create New Club</label>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                value={newClubName}
+                onChange={(event) => setNewClubName(event.target.value)}
+                placeholder="New club name"
+                className="h-9 min-w-56 flex-1 rounded-md border border-border bg-background px-3 text-sm text-foreground"
+              />
+              <Button type="button" onClick={createClub} disabled={creating}>
+                {creating ? "Creating..." : "Create Club"}
+              </Button>
+            </div>
+          </div>
         </section>
 
         {club ? (
           <section className="rounded-lg border border-border bg-card p-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Club Name" value={club.name ?? ""} onChange={(value) => patchClub({ name: value })} disabled={!canEdit} />
+              <Field label="Club Slogan" value={club.slogan ?? ""} onChange={(value) => patchClub({ slogan: value })} disabled={!canEdit} />
+              <SelectField
+                label="Meeting Type"
+                value={club.meetingType}
+                onChange={(value) => patchClub({ meetingType: value as "in_person" | "online" | "hybrid" })}
+                disabled={!canEdit}
+                options={[
+                  { value: "in_person", label: "In-person" },
+                  { value: "online", label: "Online" },
+                  { value: "hybrid", label: "Hybrid" },
+                ]}
+              />
               <Field label="Club Number" value={club.clubNumber ?? ""} onChange={(value) => patchClub({ clubNumber: value })} disabled={!canEdit} />
               <Field label="Area" value={club.area ?? ""} onChange={(value) => patchClub({ area: value })} disabled={!canEdit} />
               <Field label="Division" value={club.division ?? ""} onChange={(value) => patchClub({ division: value })} disabled={!canEdit} />
               <Field label="District" value={club.district ?? ""} onChange={(value) => patchClub({ district: value })} disabled={!canEdit} />
               <Field label="Timezone" value={club.timezone ?? ""} onChange={(value) => patchClub({ timezone: value })} disabled={!canEdit} />
             </div>
+
+            {club.meetingType === "in_person" || club.meetingType === "hybrid" ? (
+              <div className="mt-4 grid gap-3 sm:grid-cols-1">
+                <Field
+                  label="In-person Address"
+                  value={club.inPersonAddress ?? ""}
+                  onChange={(value) => patchClub({ inPersonAddress: value })}
+                  disabled={!canEdit}
+                />
+              </div>
+            ) : null}
+
+            {club.meetingType === "online" || club.meetingType === "hybrid" ? (
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <Field
+                  label="Online Platform"
+                  value={club.onlinePlatform ?? ""}
+                  onChange={(value) => patchClub({ onlinePlatform: value })}
+                  disabled={!canEdit}
+                />
+                <Field
+                  label="Online Meeting ID"
+                  value={club.onlineMeetingId ?? ""}
+                  onChange={(value) => patchClub({ onlineMeetingId: value })}
+                  disabled={!canEdit}
+                />
+                <Field
+                  label="Online Passcode"
+                  value={club.onlinePasscode ?? ""}
+                  onChange={(value) => patchClub({ onlinePasscode: value })}
+                  disabled={!canEdit}
+                />
+              </div>
+            ) : null}
 
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <QrUploader
@@ -281,6 +397,38 @@ function Field({
         disabled={disabled}
         className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground disabled:opacity-60"
       />
+    </label>
+  )
+}
+
+function SelectField({
+  label,
+  value,
+  onChange,
+  disabled,
+  options,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  disabled: boolean
+  options: Array<{ value: string; label: string }>
+}) {
+  return (
+    <label className="block text-sm">
+      <span className="mb-1 block text-muted-foreground">{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        disabled={disabled}
+        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground disabled:opacity-60"
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
     </label>
   )
 }

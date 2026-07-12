@@ -67,6 +67,12 @@ model Club {
   id           String           @id @default(cuid())
   slug         String           @unique
   name         String
+  slogan       String?
+  meetingType  MeetingType       @default(online)
+  inPersonAddress String?
+  onlinePlatform String?
+  onlineMeetingId String?
+  onlinePasscode String?
   clubNumber   String?
   area         String?
   division     String?
@@ -155,4 +161,10 @@ enum AssetKind {
   wechat_qr
   whatsapp_qr
   other
+}
+
+enum MeetingType {
+  in_person
+  online
+  hybrid
 }

@@ -116,6 +116,12 @@ export function groupSessionsForDisplay(sessions: Session[]): SessionDisplayGrou
 // Club officers and shared club-level information (persisted, rarely changes)
 export type ClubInfo = {
   clubName: string
+  slogan: string
+  meetingType: "in_person" | "online" | "hybrid"
+  inPersonAddress: string
+  onlinePlatform: string
+  onlineMeetingId: string
+  onlinePasscode: string
   clubNumber: string
   area: string
   division: string
@@ -193,6 +199,12 @@ export function getMeetingTimeConversions(time: string): Array<{ label: string; 
 
 export const DEFAULT_CLUB_INFO: ClubInfo = {
   clubName: CLUB_NAME,
+  slogan: CLUB_MISSION,
+  meetingType: "online",
+  inPersonAddress: "",
+  onlinePlatform: "Zoom",
+  onlineMeetingId: "286 785 5900",
+  onlinePasscode: "2025BRICS",
   clubNumber: "28678559",
   area: "K4",
   division: "K",

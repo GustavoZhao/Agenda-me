@@ -34,11 +34,12 @@ import { ArrowDownWideNarrow, ChevronRight, Copy, GripVertical, Plus, Trash2, Up
 type Props = {
   settings: AgendaSettings
   onChange: (next: AgendaSettings) => void
+  showClubInfo?: boolean
 }
 
 const CUSTOM_VALUE = "__custom__"
 
-export function AgendaSettingsPanel({ settings, onChange }: Props) {
+export function AgendaSettingsPanel({ settings, onChange, showClubInfo = true }: Props) {
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [overDropIndex, setOverDropIndex] = useState<number | null>(null)
   const [credentialEntries, setCredentialEntries] = useState<MembershipCredentialEntry[]>([])
@@ -255,8 +256,8 @@ export function AgendaSettingsPanel({ settings, onChange }: Props) {
       {/* Smart import */}
       <SmartImportBlock settings={settings} onChange={onChange} />
 
-      {/* Club information (collapsible, collapsed by default) */}
-      <ClubInfoBlock settings={settings} updateClubInfo={updateClubInfo} />
+      {/* Club information is managed in the dedicated Club Settings page. */}
+      {showClubInfo ? <ClubInfoBlock settings={settings} updateClubInfo={updateClubInfo} /> : null}
 
       {/* Meeting settings (collapsible, collapsed by default) */}
       <MeetingSettingsBlock settings={settings} update={update} onApplyBuffer={applyDefaultBuffer} />
@@ -632,8 +633,8 @@ function MeetingSettingsBlock({
               />
             </Field>
             <Field label="Word Meaning / Definition" hint="Optional explanation for the word">
-              <input
-                className={inputClass}
+              <textarea
+                className={`${inputClass} min-h-28 resize-y overflow-y-auto`}
                 placeholder="Enter a brief definition"
                 value={settings.wordOfTheDayMeaning}
                 onChange={(e) => update({ wordOfTheDayMeaning: e.target.value })}

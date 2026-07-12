@@ -128,6 +128,12 @@ function PageContent() {
         const detail = (await detailResponse.json()) as {
           club: {
             name: string
+            slogan: string | null
+            meetingType: "in_person" | "online" | "hybrid"
+            inPersonAddress: string | null
+            onlinePlatform: string | null
+            onlineMeetingId: string | null
+            onlinePasscode: string | null
             clubNumber: string | null
             area: string | null
             division: string | null
@@ -145,6 +151,12 @@ function PageContent() {
           clubInfo: {
             ...prev.clubInfo,
             clubName: detail.club.name || prev.clubInfo.clubName,
+            slogan: detail.club.slogan || prev.clubInfo.slogan,
+            meetingType: detail.club.meetingType || prev.clubInfo.meetingType,
+            inPersonAddress: detail.club.inPersonAddress || prev.clubInfo.inPersonAddress,
+            onlinePlatform: detail.club.onlinePlatform || prev.clubInfo.onlinePlatform,
+            onlineMeetingId: detail.club.onlineMeetingId || prev.clubInfo.onlineMeetingId,
+            onlinePasscode: detail.club.onlinePasscode || prev.clubInfo.onlinePasscode,
             clubNumber: detail.club.clubNumber || prev.clubInfo.clubNumber,
             area: detail.club.area || prev.clubInfo.area,
             division: detail.club.division || prev.clubInfo.division,
@@ -344,10 +356,10 @@ function PageContent() {
             Preview mode hides the settings panel and shows a full-width agenda. */}
         {tab === "settings" ? (
           <div className="grid gap-4 lg:grid-cols-[minmax(360px,1fr)_minmax(0,1.35fr)]">
-            <div>
-              <AgendaSettingsPanel settings={settings} onChange={setSettings} />
+            <div className="min-h-0 lg:max-h-[calc(100vh-11rem)] lg:overflow-y-auto lg:pr-1">
+              <AgendaSettingsPanel settings={settings} onChange={setSettings} showClubInfo={false} />
             </div>
-            <div className="lg:sticky lg:top-6 lg:self-start">
+            <div className="min-h-0 lg:max-h-[calc(100vh-11rem)] lg:overflow-y-auto lg:pr-1">
               <AgendaPreview settings={settings} />
             </div>
           </div>

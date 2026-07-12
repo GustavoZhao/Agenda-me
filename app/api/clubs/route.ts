@@ -18,6 +18,12 @@ export async function GET() {
           id: true,
           slug: true,
           name: true,
+          slogan: true,
+          meetingType: true,
+          inPersonAddress: true,
+          onlinePlatform: true,
+          onlineMeetingId: true,
+          onlinePasscode: true,
           clubNumber: true,
           area: true,
           division: true,
@@ -47,6 +53,12 @@ export async function POST(req: Request) {
   try {
     const body = (await req.json()) as {
       name?: string
+      slogan?: string
+      meetingType?: "in_person" | "online" | "hybrid"
+      inPersonAddress?: string
+      onlinePlatform?: string
+      onlineMeetingId?: string
+      onlinePasscode?: string
       clubNumber?: string
       area?: string
       division?: string
@@ -67,6 +79,12 @@ export async function POST(req: Request) {
       data: {
         slug,
         name,
+        slogan: body.slogan?.trim() || null,
+        meetingType: body.meetingType ?? "online",
+        inPersonAddress: body.inPersonAddress?.trim() || null,
+        onlinePlatform: body.onlinePlatform?.trim() || null,
+        onlineMeetingId: body.onlineMeetingId?.trim() || null,
+        onlinePasscode: body.onlinePasscode?.trim() || null,
         clubNumber: body.clubNumber?.trim() || null,
         area: body.area?.trim() || null,
         division: body.division?.trim() || null,
