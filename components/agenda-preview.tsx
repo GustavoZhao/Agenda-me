@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { Fragment, type ReactNode, useState } from "react"
 
 import {
   type AgendaSettings,
@@ -22,13 +22,6 @@ type Props = {
   settings: AgendaSettings
   fullWidth?: boolean
 }
-
-const MEMBERSHIP_STEPS = [
-  "Attend one full meeting",
-  "Serve as a role taker at least once",
-  "Join one of the officer teams (VPE / VPM / VPPR, etc.) and practice servant leadership skills",
-  "Pass the Executive Committee's interview",
-]
 
 const BASE_TIME_ZONE = "Asia/Shanghai"
 
@@ -107,6 +100,67 @@ function convertTimeToZone(time: string, meetingDate: string, targetTimeZone: st
   return `${hh}:${mm}`
 }
 
+function renderInlineMarkdown(text: string): ReactNode {
+  const tokens = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g)
+  return tokens.map((token, index) => {
+    if (token.startsWith("**") && token.endsWith("**") && token.length > 4) {
+      return <strong key={`b-${index}`}>{token.slice(2, -2)}</strong>
+    }
+    if (token.startsWith("*") && token.endsWith("*") && token.length > 2) {
+      return <em key={`i-${index}`}>{token.slice(1, -1)}</em>
+    }
+    return <Fragment key={`t-${index}`}>{token}</Fragment>
+  })
+}
+
+function NotesContent({ body }: { body: string }) {
+  const lines = body
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  if (lines.length === 0) {
+    return null
+  }
+
+  const numbered = lines.every((line) => /^\d+\.\s+/.test(line))
+  const bulleted = lines.every((line) => /^[-*]\s+/.test(line))
+
+  if (numbered) {
+    return (
+      <ol className="flex list-decimal flex-col gap-1.5 pl-5 text-sm text-card-foreground">
+        {lines.map((line) => (
+          <li key={line} className="text-pretty">
+            {renderInlineMarkdown(line.replace(/^\d+\.\s+/, ""))}
+          </li>
+        ))}
+      </ol>
+    )
+  }
+
+  if (bulleted) {
+    return (
+      <ul className="flex list-disc flex-col gap-1.5 pl-5 text-sm text-card-foreground">
+        {lines.map((line) => (
+          <li key={line} className="text-pretty">
+            {renderInlineMarkdown(line.replace(/^[-*]\s+/, ""))}
+          </li>
+        ))}
+      </ul>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-2 text-sm text-card-foreground">
+      {lines.map((line) => (
+        <p key={line} className="text-pretty">
+          {renderInlineMarkdown(line)}
+        </p>
+      ))}
+    </div>
+  )
+}
+
 export function AgendaPreview({ settings, fullWidth = false }: Props) {
   const browserTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
   const [selectedTimeZone, setSelectedTimeZone] = useState<string>(
@@ -126,6 +180,8 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
   const { clubInfo } = settings
   const clubName = clubInfo.clubName?.trim() || "Toastmasters Club"
   const clubSlogan = clubInfo.slogan?.trim() || CLUB_MISSION
+  const participantNotesTitle = clubInfo.participantNotesTitle?.trim() || "How to Become a Member"
+  const participantNotesBody = clubInfo.participantNotesBody?.trim() || ""
   const meetingType = clubInfo.meetingType || "online"
   const clubMeta = [
     clubInfo.area?.trim() ? `Area ${clubInfo.area.trim()}` : "",
@@ -331,15 +387,9 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
 
             <div className="mt-6 rounded-lg bg-secondary/60 p-4">
               <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-primary" style={displayFont}>
-                How to Become a Member
+                {participantNotesTitle}
               </h2>
-              <ol className="flex list-decimal flex-col gap-1.5 pl-5 text-sm text-card-foreground">
-                {MEMBERSHIP_STEPS.map((step) => (
-                  <li key={step} className="text-pretty">
-                    {step}
-                  </li>
-                ))}
-              </ol>
+              <NotesContent body={participantNotesBody} />
             </div>
 
             {(clubInfo.vpmWechatQr || clubInfo.vpmWhatsappQr || clubInfo.vpmContactNote?.trim()) && (

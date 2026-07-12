@@ -73,6 +73,20 @@ model Club {
   onlinePlatform String?
   onlineMeetingId String?
   onlinePasscode String?
+  president    String?
+  vpe          String?
+  vpm          String?
+  vppr         String?
+  secretary    String?
+  treasurer    String?
+  saa          String?
+  ipp          String?
+  mentors      String?
+  sponsors     String?
+  advisor      String?
+  participantNotesTitle String?
+  participantNotesBody  String?
+  vpmContactNote String?
   clubNumber   String?
   area         String?
   division     String?

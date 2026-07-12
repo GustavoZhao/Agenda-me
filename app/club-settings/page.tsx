@@ -1,6 +1,6 @@
 "use client"
 
-import { ChangeEvent, useEffect, useMemo, useState } from "react"
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 
@@ -21,6 +21,20 @@ type ClubDetail = {
   onlinePlatform: string | null
   onlineMeetingId: string | null
   onlinePasscode: string | null
+  president: string | null
+  vpe: string | null
+  vpm: string | null
+  vppr: string | null
+  secretary: string | null
+  treasurer: string | null
+  saa: string | null
+  ipp: string | null
+  mentors: string | null
+  sponsors: string | null
+  advisor: string | null
+  participantNotesTitle: string | null
+  participantNotesBody: string | null
+  vpmContactNote: string | null
   clubNumber: string | null
   area: string | null
   division: string | null
@@ -48,7 +62,9 @@ export default function ClubSettingsPage() {
   const [saving, setSaving] = useState(false)
   const [creating, setCreating] = useState(false)
   const [newClubName, setNewClubName] = useState("")
+  const [notesTitleType, setNotesTitleType] = useState<"default" | "custom">("default")
   const [message, setMessage] = useState<string | null>(null)
+  const notesRef = useRef<HTMLTextAreaElement | null>(null)
 
   async function loadClubs(preferredClubId?: string) {
     try {
@@ -81,6 +97,8 @@ export default function ClubSettingsPage() {
       if (!response.ok) return
       const data = (await response.json()) as { club: ClubDetail }
       setClub(data.club)
+      const title = data.club.participantNotesTitle?.trim() || ""
+      setNotesTitleType(title && title !== "How to Become a Member" ? "custom" : "default")
       window.localStorage.setItem("active-club-id", activeClubId)
     }
 
@@ -111,6 +129,11 @@ export default function ClubSettingsPage() {
       }
     }
 
+    if (notesTitleType === "custom" && !club.participantNotesTitle?.trim()) {
+      setMessage("Please provide a custom title for participant notes.")
+      return
+    }
+
     setSaving(true)
     setMessage(null)
 
@@ -127,6 +150,53 @@ export default function ClubSettingsPage() {
     }
 
     setMessage("Club settings updated.")
+  }
+
+  function applyNotesFormatting(action: "bold" | "italic" | "ol" | "ul") {
+    if (!club) return
+
+    const textarea = notesRef.current
+    if (!textarea) return
+
+    const fullText = club.participantNotesBody ?? ""
+    const start = textarea.selectionStart ?? 0
+    const end = textarea.selectionEnd ?? 0
+    const selected = fullText.slice(start, end)
+
+    const fallbackLineStart = fullText.lastIndexOf("\n", start - 1) + 1
+    const fallbackLineEndRaw = fullText.indexOf("\n", end)
+    const fallbackLineEnd = fallbackLineEndRaw === -1 ? fullText.length : fallbackLineEndRaw
+    const hasSelection = start !== end
+
+    const replaceStart = hasSelection ? start : fallbackLineStart
+    const replaceEnd = hasSelection ? end : fallbackLineEnd
+    const target = fullText.slice(replaceStart, replaceEnd)
+
+    let formatted = target
+    if (action === "bold") {
+      formatted = `**${target || "text"}**`
+    } else if (action === "italic") {
+      formatted = `*${target || "text"}*`
+    } else if (action === "ol") {
+      const lines = (target || "List item").split("\n")
+      formatted = lines
+        .map((line, index) => `${index + 1}. ${line.replace(/^\s*(?:\d+\.\s+|[-*]\s+)?/, "")}`)
+        .join("\n")
+    } else if (action === "ul") {
+      const lines = (target || "List item").split("\n")
+      formatted = lines
+        .map((line) => `- ${line.replace(/^\s*(?:\d+\.\s+|[-*]\s+)?/, "")}`)
+        .join("\n")
+    }
+
+    const nextText = `${fullText.slice(0, replaceStart)}${formatted}${fullText.slice(replaceEnd)}`
+    patchClub({ participantNotesBody: nextText })
+
+    requestAnimationFrame(() => {
+      textarea.focus()
+      const cursor = replaceStart + formatted.length
+      textarea.setSelectionRange(cursor, cursor)
+    })
   }
 
   async function createClub() {
@@ -319,6 +389,74 @@ export default function ClubSettingsPage() {
               </div>
             ) : null}
 
+            <div className="mt-6 rounded-md border border-border p-4">
+              <h2 className="mb-3 text-sm font-semibold text-foreground">Executive Committee</h2>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="President" value={club.president ?? ""} onChange={(value) => patchClub({ president: value })} disabled={!canEdit} />
+                <Field label="VPE" value={club.vpe ?? ""} onChange={(value) => patchClub({ vpe: value })} disabled={!canEdit} />
+                <Field label="VPM" value={club.vpm ?? ""} onChange={(value) => patchClub({ vpm: value })} disabled={!canEdit} />
+                <Field label="VPPR" value={club.vppr ?? ""} onChange={(value) => patchClub({ vppr: value })} disabled={!canEdit} />
+                <Field label="Secretary" value={club.secretary ?? ""} onChange={(value) => patchClub({ secretary: value })} disabled={!canEdit} />
+                <Field label="Treasurer" value={club.treasurer ?? ""} onChange={(value) => patchClub({ treasurer: value })} disabled={!canEdit} />
+                <Field label="SAA (Zoom Master)" value={club.saa ?? ""} onChange={(value) => patchClub({ saa: value })} disabled={!canEdit} />
+                <Field label="IPP" value={club.ipp ?? ""} onChange={(value) => patchClub({ ipp: value })} disabled={!canEdit} />
+                <Field label="Club Mentors" value={club.mentors ?? ""} onChange={(value) => patchClub({ mentors: value })} disabled={!canEdit} />
+                <Field label="Club Sponsors" value={club.sponsors ?? ""} onChange={(value) => patchClub({ sponsors: value })} disabled={!canEdit} />
+                <Field label="Club Advisor" value={club.advisor ?? ""} onChange={(value) => patchClub({ advisor: value })} disabled={!canEdit} />
+              </div>
+            </div>
+
+            <div className="mt-6 rounded-md border border-border p-4">
+              <h2 className="mb-3 text-sm font-semibold text-foreground">Notes for Participants</h2>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <SelectField
+                  label="Notes Title"
+                  value={notesTitleType}
+                  onChange={(value) => {
+                    const mode = value as "default" | "custom"
+                    setNotesTitleType(mode)
+                    if (mode === "default") {
+                      patchClub({ participantNotesTitle: "How to Become a Member" })
+                    } else if ((club.participantNotesTitle ?? "").trim() === "How to Become a Member") {
+                      patchClub({ participantNotesTitle: "" })
+                    }
+                  }}
+                  disabled={!canEdit}
+                  options={[
+                    { value: "default", label: "How to Become a Member" },
+                    { value: "custom", label: "Custom" },
+                  ]}
+                />
+
+                {notesTitleType === "custom" ? (
+                  <Field
+                    label="Custom Notes Title"
+                    value={club.participantNotesTitle ?? ""}
+                    onChange={(value) => patchClub({ participantNotesTitle: value })}
+                    disabled={!canEdit}
+                  />
+                ) : null}
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <Button type="button" size="sm" variant="outline" onClick={() => applyNotesFormatting("bold")} disabled={!canEdit}>Bold</Button>
+                <Button type="button" size="sm" variant="outline" onClick={() => applyNotesFormatting("italic")} disabled={!canEdit}>Italic</Button>
+                <Button type="button" size="sm" variant="outline" onClick={() => applyNotesFormatting("ol")} disabled={!canEdit}>Numbered List</Button>
+                <Button type="button" size="sm" variant="outline" onClick={() => applyNotesFormatting("ul")} disabled={!canEdit}>Bulleted List</Button>
+              </div>
+
+              <label className="mt-3 block text-sm">
+                <span className="mb-1 block text-muted-foreground">Notes Content</span>
+                <textarea
+                  ref={notesRef}
+                  value={club.participantNotesBody ?? ""}
+                  onChange={(event) => patchClub({ participantNotesBody: event.target.value })}
+                  disabled={!canEdit}
+                  className="min-h-36 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground disabled:opacity-60"
+                />
+              </label>
+            </div>
+
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <QrUploader
                 label="WeChat QR"
@@ -332,6 +470,18 @@ export default function ClubSettingsPage() {
                 onChange={(event) => upload("whatsapp_qr", event)}
                 disabled={!canEdit}
               />
+            </div>
+
+            <div className="mt-3">
+              <label className="block text-sm">
+                <span className="mb-1 block text-muted-foreground">QR Contact Note</span>
+                <textarea
+                  value={club.vpmContactNote ?? ""}
+                  onChange={(event) => patchClub({ vpmContactNote: event.target.value })}
+                  disabled={!canEdit}
+                  className="min-h-20 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground disabled:opacity-60"
+                />
+              </label>
             </div>
 
             <div className="mt-4 flex items-center gap-2">

@@ -24,6 +24,20 @@ export async function GET() {
           onlinePlatform: true,
           onlineMeetingId: true,
           onlinePasscode: true,
+          president: true,
+          vpe: true,
+          vpm: true,
+          vppr: true,
+          secretary: true,
+          treasurer: true,
+          saa: true,
+          ipp: true,
+          mentors: true,
+          sponsors: true,
+          advisor: true,
+          participantNotesTitle: true,
+          participantNotesBody: true,
+          vpmContactNote: true,
           clubNumber: true,
           area: true,
           division: true,
@@ -59,6 +73,20 @@ export async function POST(req: Request) {
       onlinePlatform?: string
       onlineMeetingId?: string
       onlinePasscode?: string
+      president?: string
+      vpe?: string
+      vpm?: string
+      vppr?: string
+      secretary?: string
+      treasurer?: string
+      saa?: string
+      ipp?: string
+      mentors?: string
+      sponsors?: string
+      advisor?: string
+      participantNotesTitle?: string
+      participantNotesBody?: string
+      vpmContactNote?: string
       clubNumber?: string
       area?: string
       division?: string
@@ -85,6 +113,20 @@ export async function POST(req: Request) {
         onlinePlatform: body.onlinePlatform?.trim() || null,
         onlineMeetingId: body.onlineMeetingId?.trim() || null,
         onlinePasscode: body.onlinePasscode?.trim() || null,
+        president: body.president?.trim() || null,
+        vpe: body.vpe?.trim() || null,
+        vpm: body.vpm?.trim() || null,
+        vppr: body.vppr?.trim() || null,
+        secretary: body.secretary?.trim() || null,
+        treasurer: body.treasurer?.trim() || null,
+        saa: body.saa?.trim() || null,
+        ipp: body.ipp?.trim() || null,
+        mentors: body.mentors?.trim() || null,
+        sponsors: body.sponsors?.trim() || null,
+        advisor: body.advisor?.trim() || null,
+        participantNotesTitle: body.participantNotesTitle?.trim() || null,
+        participantNotesBody: body.participantNotesBody?.trim() || null,
+        vpmContactNote: body.vpmContactNote?.trim() || null,
         clubNumber: body.clubNumber?.trim() || null,
         area: body.area?.trim() || null,
         division: body.division?.trim() || null,

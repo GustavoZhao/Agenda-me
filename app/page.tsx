@@ -34,6 +34,7 @@ function PageContent() {
   const [shareMessage, setShareMessage] = useState<string | null>(null)
   const [currentSlug, setCurrentSlug] = useState<string | null>(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [memberName, setMemberName] = useState("")
   const [clubs, setClubs] = useState<ClubSummary[]>([])
   const [activeClubId, setActiveClubId] = useState("")
 
@@ -82,10 +83,17 @@ function PageContent() {
     async function loadSession() {
       try {
         const response = await fetch("/api/me")
-        const data = (await response.json()) as { authenticated: boolean }
+        const data = (await response.json()) as {
+          authenticated: boolean
+          user?: {
+            name?: string | null
+          }
+        }
         setIsAuthenticated(data.authenticated)
+        setMemberName(data.authenticated ? data.user?.name?.trim() || "Member" : "")
       } catch {
         setIsAuthenticated(false)
+        setMemberName("")
       }
     }
 
@@ -134,6 +142,20 @@ function PageContent() {
             onlinePlatform: string | null
             onlineMeetingId: string | null
             onlinePasscode: string | null
+            president: string | null
+            vpe: string | null
+            vpm: string | null
+            vppr: string | null
+            secretary: string | null
+            treasurer: string | null
+            saa: string | null
+            ipp: string | null
+            mentors: string | null
+            sponsors: string | null
+            advisor: string | null
+            participantNotesTitle: string | null
+            participantNotesBody: string | null
+            vpmContactNote: string | null
             clubNumber: string | null
             area: string | null
             division: string | null
@@ -157,6 +179,20 @@ function PageContent() {
             onlinePlatform: detail.club.onlinePlatform || prev.clubInfo.onlinePlatform,
             onlineMeetingId: detail.club.onlineMeetingId || prev.clubInfo.onlineMeetingId,
             onlinePasscode: detail.club.onlinePasscode || prev.clubInfo.onlinePasscode,
+            president: detail.club.president || prev.clubInfo.president,
+            vpe: detail.club.vpe || prev.clubInfo.vpe,
+            vpm: detail.club.vpm || prev.clubInfo.vpm,
+            vppr: detail.club.vppr || prev.clubInfo.vppr,
+            secretary: detail.club.secretary || prev.clubInfo.secretary,
+            treasurer: detail.club.treasurer || prev.clubInfo.treasurer,
+            saa: detail.club.saa || prev.clubInfo.saa,
+            ipp: detail.club.ipp || prev.clubInfo.ipp,
+            mentors: detail.club.mentors || prev.clubInfo.mentors,
+            sponsors: detail.club.sponsors || prev.clubInfo.sponsors,
+            advisor: detail.club.advisor || prev.clubInfo.advisor,
+            participantNotesTitle: detail.club.participantNotesTitle || prev.clubInfo.participantNotesTitle,
+            participantNotesBody: detail.club.participantNotesBody || prev.clubInfo.participantNotesBody,
+            vpmContactNote: detail.club.vpmContactNote || prev.clubInfo.vpmContactNote,
             clubNumber: detail.club.clubNumber || prev.clubInfo.clubNumber,
             area: detail.club.area || prev.clubInfo.area,
             division: detail.club.division || prev.clubInfo.division,
@@ -288,6 +324,11 @@ function PageContent() {
             <p className="text-sm text-muted-foreground">Configure sessions and timing to auto-generate the meeting agenda</p>
           </div>
           <div className="flex items-center gap-2 print:hidden">
+            {isAuthenticated ? (
+              <span className="rounded-md border border-border bg-card px-3 py-1 text-sm text-foreground">
+                {memberName}
+              </span>
+            ) : null}
             {isAuthenticated && clubs.length > 0 ? (
               <select
                 value={activeClubId}

@@ -122,6 +122,8 @@ export type ClubInfo = {
   onlinePlatform: string
   onlineMeetingId: string
   onlinePasscode: string
+  participantNotesTitle: string
+  participantNotesBody: string
   clubNumber: string
   area: string
   division: string
@@ -205,6 +207,9 @@ export const DEFAULT_CLUB_INFO: ClubInfo = {
   onlinePlatform: "Zoom",
   onlineMeetingId: "286 785 5900",
   onlinePasscode: "2025BRICS",
+  participantNotesTitle: "How to Become a Member",
+  participantNotesBody:
+    "1. Attend one full meeting\n2. Serve as a role taker at least once\n3. Join one of the officer teams (VPE / VPM / VPPR, etc.) and practice servant leadership skills\n4. Pass the Executive Committee's interview",
   clubNumber: "28678559",
   area: "K4",
   division: "K",

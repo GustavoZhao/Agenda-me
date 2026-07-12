@@ -77,6 +77,20 @@ export async function PATCH(
       onlinePlatform?: string
       onlineMeetingId?: string
       onlinePasscode?: string
+      president?: string
+      vpe?: string
+      vpm?: string
+      vppr?: string
+      secretary?: string
+      treasurer?: string
+      saa?: string
+      ipp?: string
+      mentors?: string
+      sponsors?: string
+      advisor?: string
+      participantNotesTitle?: string
+      participantNotesBody?: string
+      vpmContactNote?: string
       clubNumber?: string
       area?: string
       division?: string
@@ -120,6 +134,22 @@ export async function PATCH(
         onlinePlatform: body.onlinePlatform === undefined ? undefined : onlinePlatform,
         onlineMeetingId: body.onlineMeetingId === undefined ? undefined : onlineMeetingId,
         onlinePasscode: body.onlinePasscode === undefined ? undefined : onlinePasscode,
+        president: body.president === undefined ? undefined : body.president?.trim() || null,
+        vpe: body.vpe === undefined ? undefined : body.vpe?.trim() || null,
+        vpm: body.vpm === undefined ? undefined : body.vpm?.trim() || null,
+        vppr: body.vppr === undefined ? undefined : body.vppr?.trim() || null,
+        secretary: body.secretary === undefined ? undefined : body.secretary?.trim() || null,
+        treasurer: body.treasurer === undefined ? undefined : body.treasurer?.trim() || null,
+        saa: body.saa === undefined ? undefined : body.saa?.trim() || null,
+        ipp: body.ipp === undefined ? undefined : body.ipp?.trim() || null,
+        mentors: body.mentors === undefined ? undefined : body.mentors?.trim() || null,
+        sponsors: body.sponsors === undefined ? undefined : body.sponsors?.trim() || null,
+        advisor: body.advisor === undefined ? undefined : body.advisor?.trim() || null,
+        participantNotesTitle:
+          body.participantNotesTitle === undefined ? undefined : body.participantNotesTitle?.trim() || null,
+        participantNotesBody:
+          body.participantNotesBody === undefined ? undefined : body.participantNotesBody || null,
+        vpmContactNote: body.vpmContactNote === undefined ? undefined : body.vpmContactNote?.trim() || null,
         clubNumber: body.clubNumber?.trim() || null,
         area: body.area?.trim() || null,
         division: body.division?.trim() || null,
@@ -137,6 +167,20 @@ export async function PATCH(
         onlinePlatform: true,
         onlineMeetingId: true,
         onlinePasscode: true,
+        president: true,
+        vpe: true,
+        vpm: true,
+        vppr: true,
+        secretary: true,
+        treasurer: true,
+        saa: true,
+        ipp: true,
+        mentors: true,
+        sponsors: true,
+        advisor: true,
+        participantNotesTitle: true,
+        participantNotesBody: true,
+        vpmContactNote: true,
         clubNumber: true,
         area: true,
         division: true,
