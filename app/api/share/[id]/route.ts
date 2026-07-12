@@ -1,22 +1,19 @@
-import { getStore } from "@netlify/blobs"
 import type { NextRequest } from "next/server"
 import { NextResponse } from "next/server"
+import { db } from "@/lib/db"
 import type { AgendaSettings } from "@/lib/agenda"
 import { normalizeSettings } from "@/lib/agenda"
 
-function blobPayloadToString(payload: string | ArrayBuffer): string {
-  if (typeof payload === "string") return payload
-  return new TextDecoder().decode(payload)
-}
-
 export async function GET(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params
-    const store = getStore("agenda-shares")
-    const data = await store.get(id)
+    const data = await db.sharedAgenda.findUnique({
+      where: { id },
+      select: { settingsJson: true },
+    })
 
     if (!data) {
       return NextResponse.json(
@@ -25,8 +22,7 @@ export async function GET(
       )
     }
 
-    const parsed = JSON.parse(blobPayloadToString(data)) as Partial<AgendaSettings>
-    const settings = normalizeSettings(parsed)
+    const settings = normalizeSettings(data.settingsJson as Partial<AgendaSettings>)
 
     return NextResponse.json(settings, { status: 200 })
   } catch (error) {

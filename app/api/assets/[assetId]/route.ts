@@ -1,4 +1,3 @@
-import { getStore } from "@netlify/blobs"
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 
@@ -18,11 +17,6 @@ function dataUrlToResponse(dataUrl: string) {
   })
 }
 
-function blobPayloadToString(payload: string | ArrayBuffer): string {
-  if (typeof payload === "string") return payload
-  return new TextDecoder().decode(payload)
-}
-
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ assetId: string }> }
@@ -32,7 +26,7 @@ export async function GET(
   const asset = await db.clubAsset.findUnique({
     where: { id: assetId },
     select: {
-      storageKey: true,
+      dataUrl: true,
     },
   })
 
@@ -40,13 +34,11 @@ export async function GET(
     return NextResponse.json({ error: "Asset not found" }, { status: 404 })
   }
 
-  const store = getStore("club-assets")
-  const payload = await store.get(asset.storageKey)
-  if (!payload) {
+  if (!asset.dataUrl) {
     return NextResponse.json({ error: "Asset data missing" }, { status: 404 })
   }
 
-  const response = dataUrlToResponse(blobPayloadToString(payload))
+  const response = dataUrlToResponse(asset.dataUrl)
   if (!response) {
     return NextResponse.json({ error: "Invalid asset payload" }, { status: 500 })
   }

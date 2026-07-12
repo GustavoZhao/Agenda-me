@@ -153,7 +153,7 @@ model ClubAsset {
   id         String    @id @default(cuid())
   clubId      String
   kind        AssetKind
-  storageKey  String
+  dataUrl     String?
   url         String
   createdById String
   createdBy   User      @relation("AssetCreator", fields: [createdById], references: [id], onDelete: Restrict)
@@ -162,6 +162,12 @@ model ClubAsset {
   club        Club      @relation(fields: [clubId], references: [id], onDelete: Cascade)
 
   @@index([clubId, kind])
+}
+
+model SharedAgenda {
+  id          String   @id
+  settingsJson Json
+  createdAt   DateTime @default(now())
 }
 
 enum ClubRole {

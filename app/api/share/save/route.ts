@@ -1,6 +1,6 @@
-import { getStore } from "@netlify/blobs"
 import type { NextRequest } from "next/server"
 import { NextResponse } from "next/server"
+import { db } from "@/lib/db"
 import type { AgendaSettings } from "@/lib/agenda"
 import { normalizeSettings } from "@/lib/agenda"
 
@@ -12,9 +12,12 @@ export async function POST(req: NextRequest) {
     // Generate a unique ID for this shared agenda
     const shareId = `agenda-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 
-    // Store in Netlify Blobs
-    const store = getStore("agenda-shares")
-    await store.set(shareId, JSON.stringify(settings), { metadata: { createdAt: new Date().toISOString() } })
+    await db.sharedAgenda.create({
+      data: {
+        id: shareId,
+        settingsJson: settings,
+      },
+    })
 
     return NextResponse.json({ shareId }, { status: 201 })
   } catch (error) {

@@ -1,4 +1,3 @@
-import { getStore } from "@netlify/blobs"
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { getAuthSession } from "@/lib/auth"
@@ -37,27 +36,16 @@ export async function POST(
     }
 
     const kind: AssetKind = body.kind ?? "other"
-    const extension = body.fileName?.split(".").pop()?.toLowerCase() || "png"
 
     const asset = await db.clubAsset.create({
       data: {
         clubId,
         kind,
         createdById: session.user.id,
-        storageKey: "pending",
+        dataUrl: body.dataUrl,
         url: "pending",
       },
       select: { id: true },
-    })
-
-    const storageKey = `clubs/${clubId}/assets/${asset.id}.${extension}`
-
-    const store = getStore("club-assets")
-    await store.set(storageKey, body.dataUrl, {
-      metadata: {
-        clubId,
-        uploadedBy: session.user.id,
-      },
     })
 
     const url = `/api/assets/${asset.id}`
@@ -65,7 +53,6 @@ export async function POST(
     await db.clubAsset.update({
       where: { id: asset.id },
       data: {
-        storageKey,
         url,
       },
     })
