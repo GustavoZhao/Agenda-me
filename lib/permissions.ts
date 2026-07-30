@@ -10,3 +10,7 @@ export function canEditByRole(role: ClubRole) {
 export function canManageByRole(role: ClubRole) {
   return MANAGE_ROLES.includes(role)
 }
+
+export function canManageMembersByRole(role: ClubRole) {
+  return role === "owner"
+}

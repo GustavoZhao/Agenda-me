@@ -89,7 +89,7 @@ export function AgendaToolbar({
       ) : (
         <Link href="/auth/signin" className={buttonVariants({ variant: "outline", size: "sm" })}>
           <LogIn className="size-4" aria-hidden="true" />
-          Sign in
+          Sign in / Sign up
         </Link>
       )}
       <Button type="button" variant="outline" size="sm" onClick={onThemeToggle}>

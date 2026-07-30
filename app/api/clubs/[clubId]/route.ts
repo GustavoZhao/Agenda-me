@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { getAuthSession } from "@/lib/auth"
-import { canManageByRole } from "@/lib/permissions"
+import { canManageByRole, canManageMembersByRole } from "@/lib/permissions"
 
 export async function GET(
   _req: Request,
@@ -43,9 +43,13 @@ export async function GET(
     return NextResponse.json({ error: "Club not found" }, { status: 404 })
   }
 
-  const role = membership?.role ?? "viewer"
-  const canManage = membership ? canManageByRole(membership.role) : false
-  const visibleMemberships = canManage ? club.memberships : []
+  if (!membership) {
+    return NextResponse.json({ error: "Claim this club before viewing its profile" }, { status: 403 })
+  }
+
+  const role = membership.role
+  const canManage = canManageByRole(membership.role)
+  const visibleMemberships = canManageMembersByRole(membership.role) ? club.memberships : []
 
   return NextResponse.json({
     role,

@@ -6,13 +6,23 @@ import { Button } from "@/components/ui/button"
 import type { ClubDetail, ClubSummary } from "@/lib/club-types"
 import { truncateLabel } from "@/lib/display"
 
+type AvailableClub = {
+  id: string
+  name: string
+  clubNumber: string | null
+  district: string | null
+}
+
 export default function ClubSettingsPage() {
   const [clubs, setClubs] = useState<ClubSummary[]>([])
+  const [availableClubs, setAvailableClubs] = useState<AvailableClub[]>([])
   const [activeClubId, setActiveClubId] = useState<string>("")
+  const [claimClubId, setClaimClubId] = useState("")
   const [club, setClub] = useState<ClubDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [claiming, setClaiming] = useState(false)
   const [newClubName, setNewClubName] = useState("")
   const [notesTitleType, setNotesTitleType] = useState<"default" | "custom">("default")
   const [message, setMessage] = useState<string | null>(null)
@@ -20,11 +30,21 @@ export default function ClubSettingsPage() {
 
   async function loadClubs(preferredClubId?: string) {
     try {
-      const response = await fetch("/api/clubs?scope=all")
-      if (!response.ok) return
+      const [membershipsResponse, availableResponse] = await Promise.all([
+        fetch("/api/clubs"),
+        fetch("/api/clubs?scope=available"),
+      ])
+      if (!membershipsResponse.ok || !availableResponse.ok) return
 
-      const data = (await response.json()) as { items: ClubSummary[] }
+      const data = (await membershipsResponse.json()) as { items: ClubSummary[] }
+      const availableData = (await availableResponse.json()) as { items: AvailableClub[] }
       setClubs(data.items)
+      setAvailableClubs(availableData.items)
+      setClaimClubId((current) =>
+        availableData.items.some((item) => item.id === current)
+          ? current
+          : availableData.items[0]?.id ?? ""
+      )
 
       const stored = window.localStorage.getItem("active-club-id")
       const selected =
@@ -33,6 +53,7 @@ export default function ClubSettingsPage() {
         data.items[0]?.club.id ??
         ""
       setActiveClubId(selected)
+      if (!selected) setClub(null)
     } finally {
       setLoading(false)
     }
@@ -59,8 +80,13 @@ export default function ClubSettingsPage() {
 
   const canEdit = useMemo(() => {
     const role = clubs.find((item) => item.club.id === activeClubId)?.role
-    return role === "owner" || role === "admin"
+    return role === "owner" || role === "admin" || role === "editor"
   }, [activeClubId, clubs])
+
+  const canManageMembers = useMemo(
+    () => clubs.find((item) => item.club.id === activeClubId)?.role === "owner",
+    [activeClubId, clubs]
+  )
 
   function patchClub(partial: Partial<ClubDetail>) {
     setClub((prev) => (prev ? { ...prev, ...partial } : prev))
@@ -180,6 +206,31 @@ export default function ClubSettingsPage() {
     setMessage("Club created. You can now edit its profile and upload QR codes.")
   }
 
+  async function claimClub() {
+    if (!claimClubId) {
+      setMessage("Please select a club to claim.")
+      return
+    }
+
+    setClaiming(true)
+    setMessage(null)
+
+    const response = await fetch(`/api/clubs/${encodeURIComponent(claimClubId)}/claim`, {
+      method: "POST",
+    })
+
+    if (!response.ok) {
+      setClaiming(false)
+      setMessage("Failed to claim this club.")
+      return
+    }
+
+    window.localStorage.setItem("active-club-id", claimClubId)
+    await loadClubs(claimClubId)
+    setClaiming(false)
+    setMessage("Club claimed as a viewer. Its information will now load automatically in the Editor.")
+  }
+
   async function upload(kind: "wechat_qr" | "whatsapp_qr", event: ChangeEvent<HTMLInputElement>) {
     if (!club || !event.target.files?.[0]) return
 
@@ -208,8 +259,8 @@ export default function ClubSettingsPage() {
     setMessage("QR image uploaded.")
   }
 
-  async function updateMemberRole(membershipId: string, role: "owner" | "admin" | "editor" | "viewer") {
-    if (!club || !canEdit) return
+  async function updateMemberRole(membershipId: string, role: "editor" | "viewer") {
+    if (!club || !canManageMembers) return
 
     const response = await fetch(
       `/api/clubs/${encodeURIComponent(club.id)}/memberships/${encodeURIComponent(membershipId)}`,
@@ -259,8 +310,10 @@ export default function ClubSettingsPage() {
           <select
             value={activeClubId}
             onChange={(event) => setActiveClubId(event.target.value)}
+            disabled={clubs.length === 0}
             className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
           >
+            {clubs.length === 0 ? <option value="">No club selected</option> : null}
             {clubs.map((item) => (
               <option key={item.club.id} value={item.club.id}>
                 {truncateLabel(item.club.name)} ({item.role})
@@ -279,6 +332,40 @@ export default function ClubSettingsPage() {
               />
               <Button type="button" onClick={createClub} disabled={creating}>
                 {creating ? "Creating..." : "Create Club"}
+              </Button>
+            </div>
+          </div>
+
+          <div className="mt-4 border-t border-border pt-4">
+            <label className="mb-1 block text-sm font-medium text-foreground">Claim an Existing Club</label>
+            <p className="mb-2 text-xs leading-relaxed text-muted-foreground">
+              Join an existing club as a viewer. You can use its saved information in the Editor, but you cannot
+              change the club profile unless the club owner upgrades your role.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={claimClubId}
+                onChange={(event) => setClaimClubId(event.target.value)}
+                disabled={availableClubs.length === 0 || claiming}
+                className="h-9 min-w-56 flex-1 rounded-md border border-border bg-background px-3 text-sm text-foreground"
+                aria-label="Club to claim"
+              >
+                {availableClubs.length === 0 ? <option value="">No clubs available to claim</option> : null}
+                {availableClubs.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                    {item.clubNumber ? ` · Club ${item.clubNumber}` : ""}
+                    {item.district ? ` · District ${item.district}` : ""}
+                  </option>
+                ))}
+              </select>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={claimClub}
+                disabled={!claimClubId || claiming}
+              >
+                {claiming ? "Claiming..." : "Claim as Viewer"}
               </Button>
             </div>
           </div>
@@ -443,8 +530,12 @@ export default function ClubSettingsPage() {
               {message ? <span className="text-sm text-muted-foreground">{message}</span> : null}
             </div>
 
-            <div className="mt-6">
+            {canManageMembers ? <div className="mt-6">
               <h2 className="mb-2 text-sm font-semibold text-foreground">Member Roles</h2>
+              <p className="mb-3 text-xs text-muted-foreground">
+                Accounts that claimed this club start as viewers. Assign editor access only when they should be
+                allowed to update the club profile.
+              </p>
               <div className="space-y-2">
                 {club.memberships.map((member) => (
                   <article key={member.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border p-3">
@@ -452,26 +543,27 @@ export default function ClubSettingsPage() {
                       <p className="text-sm font-medium text-foreground">{member.user.name || "Unnamed User"}</p>
                       <p className="text-xs text-muted-foreground">{member.user.email || "No email"}</p>
                     </div>
-                    <select
-                      value={member.role}
-                      onChange={(event) =>
-                        updateMemberRole(
-                          member.id,
-                          event.target.value as "owner" | "admin" | "editor" | "viewer"
-                        )
-                      }
-                      disabled={!canEdit}
-                      className="rounded-md border border-border bg-background px-2 py-1 text-sm"
-                    >
-                      <option value="owner">owner</option>
-                      <option value="admin">admin</option>
-                      <option value="editor">editor</option>
-                      <option value="viewer">viewer</option>
-                    </select>
+                    {member.role === "viewer" || member.role === "editor" ? (
+                      <select
+                        value={member.role}
+                        onChange={(event) =>
+                          updateMemberRole(member.id, event.target.value as "editor" | "viewer")
+                        }
+                        className="rounded-md border border-border bg-background px-2 py-1 text-sm"
+                        aria-label={`Role for ${member.user.name || member.user.email || "member"}`}
+                      >
+                        <option value="viewer">viewer</option>
+                        <option value="editor">editor</option>
+                      </select>
+                    ) : (
+                      <span className="rounded-md border border-border bg-muted px-2 py-1 text-sm text-muted-foreground">
+                        {member.role}
+                      </span>
+                    )}
                   </article>
                 ))}
               </div>
-            </div>
+            </div> : null}
           </section>
         ) : null}
       </div>

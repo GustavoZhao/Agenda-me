@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
-import type { ClubRole } from "@prisma/client"
+import { canManageMembersByRole } from "@/lib/permissions"
 
-const ALL_ROLES: ClubRole[] = ["owner", "admin", "editor", "viewer"]
+type ClaimRole = "editor" | "viewer"
 
-function isValidRole(value: string): value is ClubRole {
-  return ALL_ROLES.includes(value as ClubRole)
+function isValidClaimRole(value: string): value is ClaimRole {
+  return value === "editor" || value === "viewer"
 }
 
 export async function PATCH(
@@ -31,7 +31,7 @@ export async function PATCH(
     select: { role: true },
   })
 
-  if (!actor || (actor.role !== "owner" && actor.role !== "admin")) {
+  if (!actor || !canManageMembersByRole(actor.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
@@ -53,21 +53,15 @@ export async function PATCH(
 
   try {
     const body = (await req.json()) as { role?: string }
-    if (!body.role || !isValidRole(body.role)) {
-      return NextResponse.json({ error: "Invalid role" }, { status: 400 })
+    if (!body.role || !isValidClaimRole(body.role)) {
+      return NextResponse.json(
+        { error: "Claimed members can only be assigned viewer or editor" },
+        { status: 400 }
+      )
     }
 
-    if (target.userId === session.user.id && body.role !== "owner") {
-      return NextResponse.json({ error: "You cannot demote yourself" }, { status: 400 })
-    }
-
-    if (actor.role === "admin") {
-      if (target.role === "owner" || target.role === "admin") {
-        return NextResponse.json({ error: "Admins cannot modify owner/admin roles" }, { status: 403 })
-      }
-      if (body.role === "owner" || body.role === "admin") {
-        return NextResponse.json({ error: "Admins can only assign editor/viewer" }, { status: 403 })
-      }
+    if (target.userId === session.user.id || target.role === "owner" || target.role === "admin") {
+      return NextResponse.json({ error: "The club owner/admin role cannot be changed here" }, { status: 403 })
     }
 
     const updated = await db.clubMembership.update({

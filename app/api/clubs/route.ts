@@ -12,60 +12,25 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const scope = searchParams.get("scope")
 
-  if (scope === "all") {
-    const [memberships, clubs] = await Promise.all([
-      db.clubMembership.findMany({
-        where: { userId: session.user.id },
-        select: {
-          role: true,
-          clubId: true,
+  if (scope === "available") {
+    const clubs = await db.club.findMany({
+      where: {
+        memberships: {
+          none: {
+            userId: session.user.id,
+          },
         },
-      }),
-      db.club.findMany({
-        orderBy: { createdAt: "asc" },
-        select: {
-          id: true,
-          slug: true,
-          name: true,
-          slogan: true,
-          meetingType: true,
-          inPersonAddress: true,
-          onlinePlatform: true,
-          onlineMeetingId: true,
-          onlinePasscode: true,
-          president: true,
-          vpe: true,
-          vpm: true,
-          vppr: true,
-          secretary: true,
-          treasurer: true,
-          saa: true,
-          ipp: true,
-          mentors: true,
-          sponsors: true,
-          advisor: true,
-          participantNotesTitle: true,
-          participantNotesBody: true,
-          vpmContactNote: true,
-          clubNumber: true,
-          area: true,
-          division: true,
-          district: true,
-          timezone: true,
-          wechatQrUrl: true,
-          whatsappQrUrl: true,
-        },
-      }),
-    ])
-
-    const roleByClubId = new Map(memberships.map((membership) => [membership.clubId, membership.role]))
-
-    return NextResponse.json({
-      items: clubs.map((club) => ({
-        role: roleByClubId.get(club.id) ?? "viewer",
-        club,
-      })),
+      },
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+        clubNumber: true,
+        district: true,
+      },
     })
+
+    return NextResponse.json({ items: clubs })
   }
 
   const memberships = await db.clubMembership.findMany({
