@@ -3,6 +3,7 @@ import { db } from "@/lib/db"
 import { getAuthSession } from "@/lib/auth"
 import { normalizeSettings, type AgendaSettings } from "@/lib/agenda"
 import { makeReadableSlug } from "@/lib/slug"
+import { canCreateAgendaByRole } from "@/lib/permissions"
 
 async function ensureDefaultClub(userId: string) {
   const membership = await db.clubMembership.findFirst({
@@ -84,22 +85,31 @@ export async function POST(req: Request) {
 
     const settings = normalizeSettings(body)
 
-    const club = body.clubId
-      ? await db.club.findFirst({
-          where: {
-            id: body.clubId,
-            memberships: {
-              some: {
-                userId: session.user.id,
-                role: { in: ["owner", "admin", "editor"] },
-              },
-            },
-          },
-        })
-      : await ensureDefaultClub(session.user.id)
+    let club
 
-    if (!club) {
-      return NextResponse.json({ error: "No editable club found" }, { status: 403 })
+    if (body.clubId) {
+      const membership = await db.clubMembership.findUnique({
+        where: {
+          clubId_userId: {
+            clubId: body.clubId,
+            userId: session.user.id,
+          },
+        },
+        include: {
+          club: true,
+        },
+      })
+
+      if (!membership || !canCreateAgendaByRole(membership.role)) {
+        return NextResponse.json(
+          { error: "Join or claim a club before saving an agenda." },
+          { status: 403 }
+        )
+      }
+
+      club = membership.club
+    } else {
+      club = await ensureDefaultClub(session.user.id)
     }
 
     let slug = makeReadableSlug(10)

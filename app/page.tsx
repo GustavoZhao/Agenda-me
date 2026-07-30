@@ -264,7 +264,8 @@ function PageContent() {
       })
 
       if (!response.ok) {
-        setShareMessage("Failed to create shareable link. Please try again.")
+        const errorPayload = (await response.json().catch(() => ({}))) as { error?: string }
+        setShareMessage(errorPayload.error || "Failed to create shareable link. Please try again.")
         return
       }
 

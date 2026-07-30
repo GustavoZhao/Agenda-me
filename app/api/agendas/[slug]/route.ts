@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { getAuthSession } from "@/lib/auth"
 import { normalizeSettings, type AgendaSettings } from "@/lib/agenda"
-import { canEditByRole, canManageByRole } from "@/lib/permissions"
+import { canDeleteAgendaByRole, canUpdateAgendaByRole } from "@/lib/permissions"
 
 export async function GET(
   _req: Request,
@@ -42,7 +42,10 @@ export async function GET(
       },
       select: { role: true },
     })
-    canEdit = membership ? canEditByRole(membership.role) : false
+    canEdit = canUpdateAgendaByRole(
+      membership?.role ?? null,
+      agenda.ownerId === session.user.id
+    )
   }
 
   return NextResponse.json({
@@ -68,6 +71,7 @@ export async function PATCH(
     select: {
       id: true,
       clubId: true,
+      ownerId: true,
     },
   })
 
@@ -85,7 +89,7 @@ export async function PATCH(
     select: { role: true },
   })
 
-  if (!membership || !canEditByRole(membership.role)) {
+  if (!canUpdateAgendaByRole(membership?.role ?? null, existing.ownerId === session.user.id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
@@ -130,6 +134,7 @@ export async function DELETE(
     select: {
       id: true,
       clubId: true,
+      ownerId: true,
     },
   })
 
@@ -147,7 +152,7 @@ export async function DELETE(
     select: { role: true },
   })
 
-  if (!membership || !canManageByRole(membership.role)) {
+  if (!canDeleteAgendaByRole(membership?.role ?? null, existing.ownerId === session.user.id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
