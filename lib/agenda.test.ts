@@ -6,6 +6,7 @@ import {
   computeSchedule,
   createAgendaTemplateSessions,
   getIndividualEvaluationLabel,
+  getPresetTitleBadge,
   DEFAULT_SETTINGS,
   getSectionRoleLabel,
   getSectionRowLabel,
@@ -50,6 +51,10 @@ describe("anonymous agenda defaults", () => {
     expect(breakRow).toBeDefined()
     expect(getSectionRowLabel(breakRow!, "break")).toBe("Guest Talk")
     expect(getSectionRoleLabel(breakRow!, "break")).toBe("Meeting SAA")
+  })
+
+  it("uses an export-safe typographic badge for DTM credentials", () => {
+    expect(getPresetTitleBadge("DTM")).toEqual({ kind: "code", code: "DTM" })
   })
 })
 

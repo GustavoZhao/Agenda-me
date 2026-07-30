@@ -447,7 +447,13 @@ function AgendaRow({
               />
             ) : null}
             {presetTitleBadge.code ? (
-              <span className="inline-flex min-h-7 min-w-11 items-center justify-center rounded-md border border-border/60 bg-secondary px-2 text-xs font-semibold text-foreground">
+              <span
+                className={
+                  presetTitleBadge.kind === "code"
+                    ? "agenda-dtm-badge inline-flex min-h-7 min-w-11 items-center justify-center rounded-md border border-[#F2DF74] bg-[#772432] px-2 text-xs font-bold tracking-wide text-white"
+                    : "inline-flex min-h-7 min-w-11 items-center justify-center rounded-md border border-border/60 bg-secondary px-2 text-xs font-semibold text-foreground"
+                }
+              >
                 {presetTitleBadge.code}
               </span>
             ) : null}

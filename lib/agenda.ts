@@ -1071,11 +1071,15 @@ export function getPathwaysBadgeSrc(title: string): string | null {
 
 export function getPresetTitleBadge(title: string):
   | { kind: "image"; src: string; alt: string; code?: string }
+  | { kind: "code"; code: string }
   | null {
   const normalized = title.trim().toUpperCase()
   if (!normalized) return null
 
-  if (normalized === "DTM") return { kind: "image", src: "/dtm-badge.svg", alt: "DTM badge", code: "DTM" }
+  // The detailed DTM SVG relies on a large set of internal gradients that
+  // html2canvas cannot consistently preserve. Use a compact typographic badge
+  // so it remains legible in both the live preview and exported PNG.
+  if (normalized === "DTM") return { kind: "code", code: "DTM" }
 
   const abbrLevelMatch = normalized.match(/^([A-Z]{2})([1-5])$/)
   if (abbrLevelMatch) {
