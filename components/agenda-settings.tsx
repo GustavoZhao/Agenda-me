@@ -33,6 +33,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { SmartImport } from "@/components/smart-import"
 import { ArrowDownWideNarrow, ChevronRight, Copy, GripVertical, Plus, Trash2 } from "lucide-react"
+import { TIME_ZONE_OPTIONS } from "@/lib/time-zones"
 
 type Props = {
   settings: AgendaSettings
@@ -576,13 +577,29 @@ function MeetingSettingsBlock({
                 onChange={(e) => update({ meetingDate: e.target.value })}
               />
             </Field>
-            <Field label="Start Time (GMT+8, China)">
+            <Field label="Start Time">
               <input
                 type="time"
                 className={inputClass}
                 value={settings.startTime}
                 onChange={(e) => update({ startTime: e.target.value })}
               />
+            </Field>
+            <Field
+              label="Meeting Timezone"
+              hint="This timezone becomes the default in the agenda preview."
+            >
+              <select
+                className={inputClass}
+                value={settings.meetingTimeZone}
+                onChange={(event) => update({ meetingTimeZone: event.target.value })}
+              >
+                {TIME_ZONE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </Field>
             <Field label="Welcome Before Meeting (min)" hint="Welcome time before the meeting officially starts">
               <input

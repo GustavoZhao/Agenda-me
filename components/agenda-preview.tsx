@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, type ReactNode, useState } from "react"
+import { Fragment, type ReactNode, useEffect, useState } from "react"
 
 import {
   type AgendaSettings,
@@ -10,93 +10,24 @@ import {
   CLUB_MISSION,
   type ComputedRow,
   formatDuration,
+  getIndividualEvaluationLabel,
   getPresetTitleBadge,
   getSectionRoleLabel,
   getSectionRowLabel,
   OFFICER_FIELDS,
   computeSchedule,
 } from "@/lib/agenda"
+import {
+  convertAgendaTimeToZone,
+  DEFAULT_MEETING_TIME_ZONE,
+  formatTimeZoneOffset,
+  isSupportedTimeZone,
+  TIME_ZONE_OPTIONS,
+} from "@/lib/time-zones"
 
 type Props = {
   settings: AgendaSettings
   fullWidth?: boolean
-}
-
-const BASE_TIME_ZONE = "Asia/Shanghai"
-
-const TIME_ZONE_OPTIONS = [
-  { value: "Asia/Shanghai", label: "China (UTC+8)" },
-  { value: "America/Sao_Paulo", label: "Brazil (Sao Paulo)" },
-  { value: "Africa/Johannesburg", label: "South Africa (Johannesburg)" },
-  { value: "Europe/Moscow", label: "Russia (Moscow)" },
-  { value: "Asia/Kolkata", label: "India (Kolkata)" },
-  { value: "America/New_York", label: "US Eastern (New York)" },
-  { value: "America/Los_Angeles", label: "US Pacific (Los Angeles)" },
-  { value: "Europe/London", label: "UK (London)" },
-  { value: "Europe/Paris", label: "Central Europe (Paris)" },
-  { value: "Asia/Tokyo", label: "Japan (Tokyo)" },
-  { value: "Australia/Sydney", label: "Australia (Sydney)" },
-] as const
-
-function parseTime(time: string): { hour: number; minute: number } {
-  const [h, m] = time.split(":").map((part) => Number.parseInt(part, 10))
-  return {
-    hour: Number.isNaN(h) ? 0 : h,
-    minute: Number.isNaN(m) ? 0 : m,
-  }
-}
-
-function toDateParts(dateValue: string): { year: number; month: number; day: number } {
-  const parsed = dateValue.match(/^(\d{4})-(\d{2})-(\d{2})$/)
-  if (parsed) {
-    return {
-      year: Number.parseInt(parsed[1], 10),
-      month: Number.parseInt(parsed[2], 10),
-      day: Number.parseInt(parsed[3], 10),
-    }
-  }
-
-  const now = new Date()
-  return {
-    year: now.getUTCFullYear(),
-    month: now.getUTCMonth() + 1,
-    day: now.getUTCDate(),
-  }
-}
-
-function getOffsetMinutes(timeZone: string, date: Date): number {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    timeZoneName: "shortOffset",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).formatToParts(date)
-
-  const offset = parts.find((part) => part.type === "timeZoneName")?.value ?? "GMT+0"
-  const match = offset.match(/^GMT([+-])(\d{1,2})(?::?(\d{2}))?$/)
-  if (!match) return 0
-
-  const sign = match[1] === "-" ? -1 : 1
-  const hours = Number.parseInt(match[2], 10)
-  const minutes = Number.parseInt(match[3] ?? "0", 10)
-  return sign * (hours * 60 + minutes)
-}
-
-function convertTimeToZone(time: string, meetingDate: string, targetTimeZone: string): string {
-  if (targetTimeZone === BASE_TIME_ZONE) return time
-
-  const { hour, minute } = parseTime(time)
-  const { year, month, day } = toDateParts(meetingDate)
-
-  // Agenda input times are defined in China time (UTC+8).
-  const utcMillis = Date.UTC(year, month - 1, day, hour, minute) - 8 * 60 * 60 * 1000
-  const instant = new Date(utcMillis)
-  const offsetMinutes = getOffsetMinutes(targetTimeZone, instant)
-  const displayTime = new Date(utcMillis + offsetMinutes * 60 * 1000)
-
-  const hh = `${displayTime.getUTCHours()}`.padStart(2, "0")
-  const mm = `${displayTime.getUTCMinutes()}`.padStart(2, "0")
-  return `${hh}:${mm}`
 }
 
 function renderInlineMarkdown(text: string): ReactNode {
@@ -161,18 +92,32 @@ function NotesContent({ body }: { body: string }) {
 }
 
 export function AgendaPreview({ settings, fullWidth = false }: Props) {
-  const browserTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
+  const meetingTimeZone = isSupportedTimeZone(settings.meetingTimeZone)
+    ? settings.meetingTimeZone
+    : DEFAULT_MEETING_TIME_ZONE
   const [selectedTimeZone, setSelectedTimeZone] = useState<string>(
-    TIME_ZONE_OPTIONS.some((option) => option.value === browserTimeZone)
-      ? browserTimeZone
-      : BASE_TIME_ZONE
+    meetingTimeZone
   )
+
+  useEffect(() => {
+    setSelectedTimeZone(meetingTimeZone)
+  }, [meetingTimeZone])
 
   const { rows, totalDuration, startTime, endTime } = computeSchedule(settings)
   const displayRows = rows.map((row) => ({
     ...row,
-    start: convertTimeToZone(row.start, settings.meetingDate, selectedTimeZone),
-    end: convertTimeToZone(row.end, settings.meetingDate, selectedTimeZone),
+    start: convertAgendaTimeToZone(
+      row.start,
+      settings.meetingDate,
+      meetingTimeZone,
+      selectedTimeZone
+    ),
+    end: convertAgendaTimeToZone(
+      row.end,
+      settings.meetingDate,
+      meetingTimeZone,
+      selectedTimeZone
+    ),
   }))
 
   const previewBlocks = buildPreviewBlocks(displayRows)
@@ -190,8 +135,24 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
   ]
     .filter(Boolean)
     .join(", ")
-  const displayStartTime = convertTimeToZone(startTime, settings.meetingDate, selectedTimeZone)
-  const displayEndTime = convertTimeToZone(endTime, settings.meetingDate, selectedTimeZone)
+  const displayStartTime = convertAgendaTimeToZone(
+    startTime,
+    settings.meetingDate,
+    meetingTimeZone,
+    selectedTimeZone
+  )
+  const displayEndTime = convertAgendaTimeToZone(
+    endTime,
+    settings.meetingDate,
+    meetingTimeZone,
+    selectedTimeZone
+  )
+  const displayTimeZone = formatTimeZoneOffset(
+    selectedTimeZone,
+    settings.meetingDate,
+    startTime,
+    meetingTimeZone
+  )
 
   const dateLabel = settings.meetingDate
     ? new Date(settings.meetingDate + "T00:00:00").toLocaleDateString("en-US", {
@@ -227,7 +188,7 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
           </div>
         </header>
 
-        <div className="border-b border-border bg-background/90 px-6 py-4">
+        <div className="agenda-information-panel border-b border-border bg-background/90 px-6 py-4">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="space-y-2">
               <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Meeting Information</div>
@@ -258,7 +219,7 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
                 </div>
               )}
             </div>
-            <div className="rounded-lg border border-border bg-secondary/50 px-3 py-2">
+            <div className="agenda-timezone-panel rounded-lg border border-border bg-secondary/50 px-3 py-2">
               <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Display timezone</div>
               <div className="mt-2 flex items-center gap-2">
                 <select
@@ -276,6 +237,13 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
               </div>
             </div>
           </div>
+          {(settings.wordOfTheDay?.trim() ||
+            settings.wordPartOfSpeech?.trim() ||
+            settings.wordOfTheDayMeaning?.trim()) ? (
+            <div className="agenda-export-word hidden">
+              <WordOfTheDayPanel settings={settings} />
+            </div>
+          ) : null}
         </div>
 
         {/* Meeting info bar */}
@@ -286,8 +254,9 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
             </span>
             {dateLabel && <span className="text-white/80">{dateLabel}</span>}
           </div>
-          <span className="text-sm font-medium">
+          <span className="agenda-meeting-time text-sm font-medium">
             {displayStartTime} – {displayEndTime}
+            <span className="agenda-export-timezone hidden"> ({displayTimeZone})</span>
           </span>
         </div>
 
@@ -295,8 +264,8 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
         <div className={`grid grid-cols-1 ${fullWidth ? "lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]" : ""}`}>
           <div className={`min-w-0 ${fullWidth ? "lg:border-r lg:border-border" : ""}`}>
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-sm">
-                <thead>
+              <table className="agenda-schedule w-full border-collapse text-sm">
+                <thead className="agenda-schedule-header">
                   <tr className="border-b border-border text-left text-muted-foreground">
                     <th className="px-4 py-2 font-medium">Time</th>
                     <th className="px-4 py-2 font-medium">Session</th>
@@ -329,10 +298,18 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
                           label={block.label}
                           sectionKey={block.key}
                           rows={block.rows}
+                          allRows={displayRows}
                         />
                       )
                     }
-                    return <AgendaRow key={block.row.id} row={block.row} sectionKey={null} />
+                    return (
+                      <AgendaRow
+                        key={block.row.id}
+                        row={block.row}
+                        sectionKey={null}
+                        allRows={displayRows}
+                      />
+                    )
                   })}
                   {previewBlocks.length === 0 && (
                     <tr>
@@ -352,27 +329,8 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
 
           <aside className={`min-w-0 border-t border-border p-5 ${fullWidth ? "lg:border-t-0" : ""}`}>
             {(settings.wordOfTheDay?.trim() || settings.wordPartOfSpeech?.trim() || settings.wordOfTheDayMeaning?.trim()) ? (
-              <div className="mb-6 rounded-lg border border-[#004165]/30 bg-[#004165] p-4 text-white dark:border-[#004165]/30 dark:bg-[#004165]">
-                <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-white" style={displayFont}>
-                  Word of the Day
-                </h2>
-                {(settings.wordOfTheDay?.trim() || settings.wordPartOfSpeech?.trim()) ? (
-                  <p className="text-sm text-white" style={displayFont}>
-                    {settings.wordOfTheDay?.trim() ? (
-                      <span className="font-medium not-italic">{settings.wordOfTheDay.trim()}</span>
-                    ) : null}
-                    {settings.wordPartOfSpeech?.trim() ? (
-                      <span className="ml-2 font-light italic text-white/90">
-                        {settings.wordPartOfSpeech.trim()}
-                      </span>
-                    ) : null}
-                  </p>
-                ) : null}
-                {settings.wordOfTheDayMeaning?.trim() ? (
-                  <p className="mt-1 text-sm font-light leading-relaxed text-white/90">
-                    {settings.wordOfTheDayMeaning.trim()}
-                  </p>
-                ) : null}
+              <div className="agenda-sidebar-word mb-6">
+                <WordOfTheDayPanel settings={settings} />
               </div>
             ) : null}
 
@@ -430,40 +388,54 @@ function SectionRows({
   label,
   sectionKey,
   rows,
+  allRows,
 }: {
   label: string
   sectionKey: string
   rows: ComputedRow[]
+  allRows: ComputedRow[]
 }) {
   return (
     <>
-      <tr className="border-b border-border/60 bg-[#F2DF74]/20">
+      <tr className="agenda-section-row border-b border-border/60 bg-[#F2DF74]/20">
         <td colSpan={5} className="px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-foreground">
           {label}
         </td>
       </tr>
       {rows.map((row) => (
-        <AgendaRow key={row.id} row={row} sectionKey={sectionKey} />
+        <AgendaRow key={row.id} row={row} sectionKey={sectionKey} allRows={allRows} />
       ))}
     </>
   )
 }
 
-function AgendaRow({ row, sectionKey }: { row: ComputedRow; sectionKey: string | null }) {
-  const sessionLabel = getSectionRowLabel(row, sectionKey)
+function AgendaRow({
+  row,
+  sectionKey,
+  allRows,
+}: {
+  row: ComputedRow
+  sectionKey: string | null
+  allRows: ComputedRow[]
+}) {
+  const sessionLabel =
+    getIndividualEvaluationLabel(row, allRows) ?? getSectionRowLabel(row, sectionKey)
   const roleLabel = getSectionRoleLabel(row, sectionKey)
   const titleLabel = row.title?.trim() ?? ""
   const presetTitleBadge = getPresetTitleBadge(titleLabel)
   const isBreak = row.activity === BREAK_ACTIVITY
 
   return (
-    <tr className="border-b border-border/60 last:border-b-0">
-      <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-muted-foreground">
+    <tr className="agenda-session-row border-b border-border/60 last:border-b-0">
+      <td className="agenda-time-cell whitespace-nowrap px-4 py-3 font-mono text-xs text-muted-foreground">
         {row.start} – {row.end}
       </td>
-      <td className="px-4 py-3 font-medium text-card-foreground">{sessionLabel}</td>
-      <td className="px-4 py-3 text-muted-foreground">{roleLabel}</td>
-      <td className="px-4 py-3 text-muted-foreground">
+      <td className="agenda-session-cell px-4 py-3 font-medium text-card-foreground">{sessionLabel}</td>
+      <td className="agenda-role-cell px-4 py-3 text-muted-foreground">{roleLabel}</td>
+      <td
+        className="agenda-title-cell px-4 py-3 text-muted-foreground"
+        data-empty-title={!presetTitleBadge && !titleLabel ? "true" : undefined}
+      >
         {presetTitleBadge ? (
           <div className="flex items-center gap-2">
             {presetTitleBadge.kind === "image" ? (
@@ -486,7 +458,7 @@ function AgendaRow({ row, sectionKey }: { row: ComputedRow; sectionKey: string |
           <span>—</span>
         )}
       </td>
-      <td className="whitespace-nowrap px-4 py-3 text-right text-muted-foreground">
+      <td className="agenda-duration-cell whitespace-nowrap px-4 py-3 text-right text-muted-foreground">
         {isBreak ? (
           <div className="flex items-center justify-end gap-1.5 text-[10px] text-muted-foreground">
             <span className="inline-flex items-center gap-1 rounded-full bg-background/70 px-1.5 py-0.5">
@@ -508,6 +480,38 @@ function AgendaRow({ row, sectionKey }: { row: ComputedRow; sectionKey: string |
         )}
       </td>
     </tr>
+  )
+}
+
+function WordOfTheDayPanel({ settings }: { settings: AgendaSettings }) {
+  const displayFont = {
+    fontFamily:
+      "var(--font-montserrat), var(--font-alibaba-puhuiti), ui-sans-serif, system-ui, sans-serif",
+  }
+
+  return (
+    <div className="rounded-lg border border-[#004165]/30 bg-[#004165] p-4 text-white dark:border-[#004165]/30 dark:bg-[#004165]">
+      <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-white" style={displayFont}>
+        Word of the Day
+      </h2>
+      {(settings.wordOfTheDay?.trim() || settings.wordPartOfSpeech?.trim()) ? (
+        <p className="text-sm text-white" style={displayFont}>
+          {settings.wordOfTheDay?.trim() ? (
+            <span className="font-medium not-italic">{settings.wordOfTheDay.trim()}</span>
+          ) : null}
+          {settings.wordPartOfSpeech?.trim() ? (
+            <span className="ml-2 font-light italic text-white/90">
+              {settings.wordPartOfSpeech.trim()}
+            </span>
+          ) : null}
+        </p>
+      ) : null}
+      {settings.wordOfTheDayMeaning?.trim() ? (
+        <p className="mt-1 text-sm font-light leading-relaxed text-white/90">
+          {settings.wordOfTheDayMeaning.trim()}
+        </p>
+      ) : null}
+    </div>
   )
 }
 

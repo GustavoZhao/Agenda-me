@@ -5,6 +5,7 @@ import {
   BREAK_ACTIVITY,
   computeSchedule,
   createAgendaTemplateSessions,
+  getIndividualEvaluationLabel,
   DEFAULT_SETTINGS,
   getSectionRoleLabel,
   getSectionRowLabel,
@@ -19,6 +20,7 @@ describe("anonymous agenda defaults", () => {
     expect(DEFAULT_SETTINGS.clubInfo.clubNumber).toBe("00000000")
     expect(DEFAULT_SETTINGS.clubInfo.vpmWechatQr).toBe("")
     expect(DEFAULT_SETTINGS.clubInfo.vpmWhatsappQr).toBe("")
+    expect(DEFAULT_SETTINGS.meetingTimeZone).toBe("Asia/Shanghai")
     expect(JSON.stringify(DEFAULT_SETTINGS)).not.toContain("BRICS")
   })
 
@@ -72,5 +74,21 @@ describe("meeting templates", () => {
     expect(bookClub.some((session) => session.activity === "Book Club Discussion")).toBe(true)
     expect(speechathon.filter((session) => session.activity === "Prepared Speech")).toHaveLength(5)
     expect(speechathon.filter((session) => session.activity === "Individual Evaluation")).toHaveLength(5)
+  })
+
+  it("describes the speaker linked to an individual evaluation", () => {
+    const sessions = createAgendaTemplateSessions("standard")
+    const speech = sessions.find((session) => session.activity === "Prepared Speech")!
+    const evaluation = sessions.find(
+      (session) =>
+        session.activity === "Individual Evaluation" &&
+        session.evaluatedSessionId === speech.id
+    )!
+
+    speech.presenter = "Alex Smith"
+
+    expect(getIndividualEvaluationLabel(evaluation, sessions)).toBe(
+      "Evaluation of Alex Smith’s Speech"
+    )
   })
 })

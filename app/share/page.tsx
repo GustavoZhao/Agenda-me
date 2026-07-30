@@ -3,9 +3,8 @@
 import { Suspense, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { AgendaPreview } from "@/components/agenda-preview"
+import { SharedAgendaActions } from "@/components/shared-agenda-actions"
 import { type AgendaSettings, DEFAULT_SETTINGS } from "@/lib/agenda"
-import { Button } from "@/components/ui/button"
-import { Moon, SunMedium } from "lucide-react"
 
 function SharePageContent() {
   const searchParams = useSearchParams()
@@ -87,15 +86,16 @@ function SharePageContent() {
   return (
     <main className="min-h-screen bg-background px-4 py-6 sm:px-6">
       <div className="mx-auto max-w-5xl">
-        <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3 print:hidden">
           <div>
             <h1 className="text-xl font-semibold text-foreground">{title}</h1>
             <p className="text-sm text-muted-foreground">Shared agenda view</p>
           </div>
-          <Button type="button" variant="outline" size="sm" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
-            {theme === "dark" ? <SunMedium className="size-4" aria-hidden="true" /> : <Moon className="size-4" aria-hidden="true" />}
-            {theme === "dark" ? "Light" : "Dark"}
-          </Button>
+          <SharedAgendaActions
+            settings={settings}
+            theme={theme}
+            onThemeToggle={() => setTheme(theme === "dark" ? "light" : "dark")}
+          />
         </div>
         <AgendaPreview settings={settings} fullWidth />
       </div>

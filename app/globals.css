@@ -164,6 +164,169 @@
   }
 }
 
+/* Mobile-first layout used only by the high-resolution PNG exporter. */
+#agenda-sheet[data-export-layout="mobile"] {
+  font-family: var(--font-geist-sans), var(--font-alibaba-puhuiti), ui-sans-serif, system-ui, sans-serif;
+}
+
+#agenda-sheet[data-export-layout="mobile"] > header {
+  padding: 1.25rem 1rem;
+}
+
+#agenda-sheet[data-export-layout="mobile"] > header > div {
+  gap: 0.75rem;
+}
+
+#agenda-sheet[data-export-layout="mobile"] > header > div > div:first-child {
+  width: 3.25rem;
+  height: 3.25rem;
+}
+
+#agenda-sheet[data-export-layout="mobile"] .agenda-information-panel {
+  padding: 1rem;
+}
+
+#agenda-sheet[data-export-layout="mobile"] .agenda-timezone-panel {
+  display: none;
+}
+
+#agenda-sheet[data-export-layout="mobile"] .agenda-export-word {
+  display: block !important;
+  margin-top: 0.9rem;
+}
+
+#agenda-sheet[data-export-layout="mobile"] .agenda-export-word > div {
+  padding: 0.85rem;
+}
+
+#agenda-sheet[data-export-layout="mobile"] .agenda-export-timezone {
+  display: inline !important;
+}
+
+#agenda-sheet[data-export-layout="mobile"] .agenda-meeting-time {
+  font-weight: 700;
+}
+
+#agenda-sheet[data-export-layout="mobile"] .agenda-schedule-header {
+  display: none;
+}
+
+#agenda-sheet[data-export-layout="mobile"] .agenda-schedule,
+#agenda-sheet[data-export-layout="mobile"] .agenda-schedule tbody {
+  display: block;
+  width: 100%;
+}
+
+#agenda-sheet[data-export-layout="mobile"] .agenda-section-row {
+  display: block;
+}
+
+#agenda-sheet[data-export-layout="mobile"] .agenda-section-row > td {
+  display: block;
+  padding: 0.6rem 1rem;
+  font-size: 0.72rem;
+}
+
+#agenda-sheet[data-export-layout="mobile"] .agenda-session-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 0.75rem;
+  row-gap: 0.3rem;
+  padding: 0.75rem 1rem;
+}
+
+#agenda-sheet[data-export-layout="mobile"] .agenda-session-row > td {
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+  white-space: normal;
+}
+
+#agenda-sheet[data-export-layout="mobile"] .agenda-time-cell {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+#agenda-sheet[data-export-layout="mobile"] .agenda-session-cell {
+  grid-column: 1;
+  grid-row: 2;
+  font-size: 0.9rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+#agenda-sheet[data-export-layout="mobile"] .agenda-duration-cell {
+  grid-column: 2;
+  grid-row: 2;
+  align-self: start;
+}
+
+#agenda-sheet[data-export-layout="mobile"] .agenda-duration-cell > div {
+  justify-content: flex-end;
+  gap: 0.25rem;
+}
+
+#agenda-sheet[data-export-layout="mobile"] .agenda-duration-cell span {
+  gap: 0.2rem;
+  padding-right: 0.25rem;
+  padding-left: 0.25rem;
+  font-size: 0.58rem;
+}
+
+#agenda-sheet[data-export-layout="mobile"] .agenda-duration-cell span > span {
+  width: 0.42rem;
+  height: 0.42rem;
+  padding: 0;
+}
+
+#agenda-sheet[data-export-layout="mobile"] .agenda-role-cell {
+  grid-column: 1;
+  grid-row: 3;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+#agenda-sheet[data-export-layout="mobile"] .agenda-title-cell {
+  grid-column: 2;
+  grid-row: 3;
+  align-self: center;
+  font-size: 0.7rem;
+  line-height: 1.2;
+}
+
+#agenda-sheet[data-export-layout="mobile"] .agenda-title-cell[data-empty-title="true"] {
+  display: none;
+}
+
+#agenda-sheet[data-export-layout="mobile"] .agenda-title-cell img {
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 0.25rem;
+}
+
+#agenda-sheet[data-export-layout="mobile"] .agenda-title-cell span {
+  min-width: 0;
+  min-height: 1.35rem;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.62rem;
+}
+
+#agenda-sheet[data-export-layout="mobile"] aside {
+  padding: 1rem;
+}
+
+#agenda-sheet[data-export-layout="mobile"] .agenda-sidebar-word {
+  display: none;
+}
+
+#agenda-sheet[data-export-layout="mobile"] footer {
+  padding-right: 1rem;
+  padding-left: 1rem;
+}
+
 /* 打印时只显示议程表 */
 @media print {
   html,

@@ -151,6 +151,7 @@ export type AgendaSettings = {
   meetingTitle: string
   meetingDate: string
   startTime: string // "HH:MM"
+  meetingTimeZone: string // IANA time zone used to interpret the meeting start time
   preWelcome: number // Welcome duration before the meeting officially starts (minutes)
   meetingSaa: string // Meeting role; distinct from the club officer with the same title
   defaultBuffer: number
@@ -475,6 +476,7 @@ export const DEFAULT_SETTINGS: AgendaSettings = {
   meetingTitle: "Regular Meeting",
   meetingDate: "",
   startTime: "19:00",
+  meetingTimeZone: "Asia/Shanghai",
   preWelcome: 5,
   meetingSaa: "Meeting SAA",
   defaultBuffer: 1,
@@ -635,6 +637,21 @@ export function getSectionRoleLabel(row: ComputedRow, sectionKey: string | null)
     return row.presenter?.trim() || "—"
   }
   return row.presenter?.trim() || "—"
+}
+
+export function getIndividualEvaluationLabel(
+  evaluation: Pick<Session, "activity" | "evaluatedSessionId">,
+  sessions: Array<Pick<Session, "id" | "presenter">>
+): string | null {
+  if (evaluation.activity !== "Individual Evaluation" || !evaluation.evaluatedSessionId) {
+    return null
+  }
+
+  const speech = sessions.find((session) => session.id === evaluation.evaluatedSessionId)
+  if (!speech) return null
+
+  const speaker = speech.presenter?.trim() || "the Speaker"
+  return `Evaluation of ${speaker}’s Speech`
 }
 
 // Build preview table blocks with ALL CAPS section headers
@@ -800,6 +817,7 @@ export function normalizeSettings(raw: Partial<AgendaSettings>): AgendaSettings 
   return {
     ...DEFAULT_SETTINGS,
     ...raw,
+    meetingTimeZone: raw.meetingTimeZone || DEFAULT_SETTINGS.meetingTimeZone,
     sessions,
     clubInfo: { ...DEFAULT_CLUB_INFO, ...(raw.clubInfo ?? {}) },
   }

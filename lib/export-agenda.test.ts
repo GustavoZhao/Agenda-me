@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest"
 
-import { makeAgendaPngFilename } from "./export-agenda"
+import {
+  hasExpectedMobileExportSize,
+  makeAgendaPngFilename,
+  MOBILE_AGENDA_EXPORT,
+} from "./export-agenda"
 
 describe("makeAgendaPngFilename", () => {
   it("includes the meeting title and date", () => {
@@ -15,5 +19,16 @@ describe("makeAgendaPngFilename", () => {
       meetingTitle: 'Club: Meeting / "Special"',
       meetingDate: "",
     })).toBe("Club-Meeting-Special.png")
+  })
+
+  it("exports a high-density image designed at a readable mobile width", () => {
+    expect(MOBILE_AGENDA_EXPORT.cssWidth).toBe(390)
+    expect(MOBILE_AGENDA_EXPORT.scale).toBe(3)
+    expect(MOBILE_AGENDA_EXPORT.cssWidth * MOBILE_AGENDA_EXPORT.scale).toBe(
+      MOBILE_AGENDA_EXPORT.pixelWidth
+    )
+    expect(hasExpectedMobileExportSize({ width: 1170, height: 4800 })).toBe(true)
+    expect(hasExpectedMobileExportSize({ width: 1080, height: 4800 })).toBe(false)
+    expect(hasExpectedMobileExportSize({ width: 1170, height: 0 })).toBe(false)
   })
 })

@@ -3,9 +3,8 @@
 import { useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { AgendaPreview } from "@/components/agenda-preview"
+import { SharedAgendaActions } from "@/components/shared-agenda-actions"
 import { type AgendaSettings, DEFAULT_SETTINGS } from "@/lib/agenda"
-import { Button } from "@/components/ui/button"
-import { Moon, PencilLine, SunMedium } from "lucide-react"
 
 type AgendaResponse = {
   id: string
@@ -88,27 +87,21 @@ export default function AgendaDetailPage() {
   return (
     <main className="min-h-screen bg-background px-4 py-6 sm:px-6">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3 print:hidden">
           <div>
             <h1 className="text-xl font-semibold text-foreground">{title}</h1>
             <p className="text-sm text-muted-foreground">Shared agenda view</p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
-              {theme === "dark" ? <SunMedium className="size-4" aria-hidden="true" /> : <Moon className="size-4" aria-hidden="true" />}
-              {theme === "dark" ? "Light" : "Dark"}
-            </Button>
-            {canEdit ? (
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => router.push(`/?slug=${encodeURIComponent(params.slug)}`)}
-              >
-                <PencilLine className="size-4" aria-hidden="true" />
-                Edit
-              </Button>
-            ) : null}
-          </div>
+          <SharedAgendaActions
+            settings={settings}
+            theme={theme}
+            onThemeToggle={() => setTheme(theme === "dark" ? "light" : "dark")}
+            onEdit={
+              canEdit
+                ? () => router.push(`/?slug=${encodeURIComponent(params.slug)}`)
+                : undefined
+            }
+          />
         </div>
         <AgendaPreview settings={settings} fullWidth />
       </div>

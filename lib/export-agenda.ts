@@ -1,6 +1,14 @@
 import type { AgendaSettings } from "@/lib/agenda"
 
-const EXPORT_WIDTH = 1080
+export const MOBILE_AGENDA_EXPORT = {
+  cssWidth: 390,
+  scale: 3,
+  pixelWidth: 1170,
+} as const
+
+export function hasExpectedMobileExportSize(canvas: Pick<HTMLCanvasElement, "width" | "height">) {
+  return canvas.width === MOBILE_AGENDA_EXPORT.pixelWidth && canvas.height > 0
+}
 
 function sanitizeFilenamePart(value: string): string {
   return value
@@ -26,14 +34,34 @@ export async function exportAgendaAsPng(settings: AgendaSettings): Promise<void>
   await document.fonts.ready
   const { default: html2canvas } = await import("html2canvas-pro")
 
-  const elementWidth = Math.max(1, agenda.getBoundingClientRect().width)
-  const scale = Math.min(3, Math.max(1, EXPORT_WIDTH / elementWidth))
   const canvas = await html2canvas(agenda, {
     backgroundColor: getComputedStyle(agenda).backgroundColor,
     logging: false,
-    scale,
+    scale: MOBILE_AGENDA_EXPORT.scale,
     useCORS: true,
+    width: MOBILE_AGENDA_EXPORT.cssWidth,
+    windowWidth: MOBILE_AGENDA_EXPORT.cssWidth,
+    onclone: (clonedDocument) => {
+      const clonedAgenda = clonedDocument.getElementById("agenda-sheet")
+      if (!clonedAgenda) return
+
+      clonedAgenda.dataset.exportLayout = "mobile"
+      clonedAgenda.style.width = `${MOBILE_AGENDA_EXPORT.cssWidth}px`
+      clonedAgenda.style.maxWidth = "none"
+      clonedAgenda.style.margin = "0"
+
+      const wrapper = clonedAgenda.parentElement
+      if (wrapper) {
+        wrapper.style.width = `${MOBILE_AGENDA_EXPORT.cssWidth}px`
+        wrapper.style.maxWidth = "none"
+        wrapper.style.margin = "0"
+      }
+    },
   })
+
+  if (!hasExpectedMobileExportSize(canvas)) {
+    throw new Error("The browser could not render the agenda at the expected mobile size.")
+  }
 
   const filename = makeAgendaPngFilename(settings)
 
