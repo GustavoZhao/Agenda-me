@@ -3,56 +3,8 @@
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-
-type ClubSummary = {
-  role: "owner" | "admin" | "editor" | "viewer"
-  club: {
-    id: string
-    name: string
-  }
-}
-
-type ClubDetail = {
-  id: string
-  name: string
-  slogan: string | null
-  meetingType: "in_person" | "online" | "hybrid"
-  inPersonAddress: string | null
-  onlinePlatform: string | null
-  onlineMeetingId: string | null
-  onlinePasscode: string | null
-  president: string | null
-  vpe: string | null
-  vpm: string | null
-  vppr: string | null
-  secretary: string | null
-  treasurer: string | null
-  saa: string | null
-  ipp: string | null
-  mentors: string | null
-  sponsors: string | null
-  advisor: string | null
-  participantNotesTitle: string | null
-  participantNotesBody: string | null
-  vpmContactNote: string | null
-  clubNumber: string | null
-  area: string | null
-  division: string | null
-  district: string | null
-  timezone: string | null
-  wechatQrUrl: string | null
-  whatsappQrUrl: string | null
-  memberships: Array<{
-    id: string
-    role: "owner" | "admin" | "editor" | "viewer"
-    user: {
-      id: string
-      name: string | null
-      email: string | null
-      image: string | null
-    }
-  }>
-}
+import type { ClubDetail, ClubSummary } from "@/lib/club-types"
+import { truncateLabel } from "@/lib/display"
 
 export default function ClubSettingsPage() {
   const [clubs, setClubs] = useState<ClubSummary[]>([])
@@ -311,7 +263,7 @@ export default function ClubSettingsPage() {
           >
             {clubs.map((item) => (
               <option key={item.club.id} value={item.club.id}>
-                {item.club.name} ({item.role})
+                {truncateLabel(item.club.name)} ({item.role})
               </option>
             ))}
           </select>
@@ -400,9 +352,9 @@ export default function ClubSettingsPage() {
                 <Field label="Treasurer" value={club.treasurer ?? ""} onChange={(value) => patchClub({ treasurer: value })} disabled={!canEdit} />
                 <Field label="SAA (Zoom Master)" value={club.saa ?? ""} onChange={(value) => patchClub({ saa: value })} disabled={!canEdit} />
                 <Field label="IPP" value={club.ipp ?? ""} onChange={(value) => patchClub({ ipp: value })} disabled={!canEdit} />
-                <Field label="Club Mentors" value={club.mentors ?? ""} onChange={(value) => patchClub({ mentors: value })} disabled={!canEdit} />
-                <Field label="Club Sponsors" value={club.sponsors ?? ""} onChange={(value) => patchClub({ sponsors: value })} disabled={!canEdit} />
-                <Field label="Club Advisor" value={club.advisor ?? ""} onChange={(value) => patchClub({ advisor: value })} disabled={!canEdit} />
+                <Field label="Club Mentor(s)" value={club.mentors ?? ""} onChange={(value) => patchClub({ mentors: value })} disabled={!canEdit} />
+                <Field label="Club Sponsor(s)" value={club.sponsors ?? ""} onChange={(value) => patchClub({ sponsors: value })} disabled={!canEdit} />
+                <Field label="Club Advisor(s)" value={club.advisor ?? ""} onChange={(value) => patchClub({ advisor: value })} disabled={!canEdit} />
               </div>
             </div>
 

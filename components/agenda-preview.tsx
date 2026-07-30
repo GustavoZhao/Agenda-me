@@ -10,7 +10,6 @@ import {
   CLUB_MISSION,
   type ComputedRow,
   formatDuration,
-  formatDurationRange,
   getPresetTitleBadge,
   getSectionRoleLabel,
   getSectionRowLabel,
@@ -178,8 +177,8 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
 
   const previewBlocks = buildPreviewBlocks(displayRows)
   const { clubInfo } = settings
-  const clubName = clubInfo.clubName?.trim() || "Toastmasters Club"
-  const clubSlogan = clubInfo.slogan?.trim() || CLUB_MISSION
+  const clubName = clubInfo.clubName?.trim() || "Sample Toastmasters Club"
+  const clubSlogan = clubInfo.slogan?.trim() || "Your club slogan goes here"
   const participantNotesTitle = clubInfo.participantNotesTitle?.trim() || "How to Become a Member"
   const participantNotesBody = clubInfo.participantNotesBody?.trim() || ""
   const meetingType = clubInfo.meetingType || "online"
@@ -204,7 +203,8 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
     : ""
 
   const displayFont = {
-    fontFamily: "var(--font-montserrat), ui-sans-serif, system-ui, sans-serif",
+    fontFamily:
+      "var(--font-montserrat), var(--font-alibaba-puhuiti), ui-sans-serif, system-ui, sans-serif",
   }
 
   return (
@@ -279,7 +279,7 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
         </div>
 
         {/* Meeting info bar */}
-        <div className="flex flex-wrap items-center justify-between gap-2 bg-[#004165] px-6 py-3 text-white">
+        <div className="flex flex-wrap items-center justify-between gap-2 bg-[#004165] px-6 py-3 text-white dark:bg-gradient-to-r dark:from-[#3B0104] dark:to-[#781327]">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
             <span className="font-semibold" style={displayFont}>
               {settings.meetingTitle || "Meeting Agenda"}
@@ -351,14 +351,21 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
           </div>
 
           <aside className={`min-w-0 border-t border-border p-5 ${fullWidth ? "lg:border-t-0" : ""}`}>
-            {(settings.wordOfTheDay?.trim() || settings.wordOfTheDayMeaning?.trim()) ? (
+            {(settings.wordOfTheDay?.trim() || settings.wordPartOfSpeech?.trim() || settings.wordOfTheDayMeaning?.trim()) ? (
               <div className="mb-6 rounded-lg border border-[#004165]/30 bg-[#004165] p-4 text-white dark:border-[#004165]/30 dark:bg-[#004165]">
                 <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-white" style={displayFont}>
                   Word of the Day
                 </h2>
-                {settings.wordOfTheDay?.trim() ? (
-                  <p className="text-sm font-semibold text-white" style={displayFont}>
-                    {settings.wordOfTheDay.trim()}
+                {(settings.wordOfTheDay?.trim() || settings.wordPartOfSpeech?.trim()) ? (
+                  <p className="text-sm text-white" style={displayFont}>
+                    {settings.wordOfTheDay?.trim() ? (
+                      <span className="font-medium not-italic">{settings.wordOfTheDay.trim()}</span>
+                    ) : null}
+                    {settings.wordPartOfSpeech?.trim() ? (
+                      <span className="ml-2 font-light italic text-white/90">
+                        {settings.wordPartOfSpeech.trim()}
+                      </span>
+                    ) : null}
                   </p>
                 ) : null}
                 {settings.wordOfTheDayMeaning?.trim() ? (
@@ -408,7 +415,10 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
           </aside>
         </div>
 
-        <footer className="border-t border-border bg-background/70 px-6 py-2 text-center text-[11px] text-muted-foreground">
+        <footer
+          id="agenda-footer"
+          className="h-auto min-h-0 flex-none border-t border-border bg-background/70 px-6 py-2 text-center text-[11px] leading-4 text-muted-foreground"
+        >
           Designed with ♥ by BRICS+ Advanced Online Toastmasters.
         </footer>
       </article>

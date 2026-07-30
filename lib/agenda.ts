@@ -18,6 +18,7 @@ export type Session = {
   speechTitle?: string // Prepared Speech: talk title
   tableTopicsTheme?: string // Table Topics: session theme
   participantTimeLimit?: number // Table Topics: minutes allowed per participant
+  evaluatedSessionId?: string // Individual Evaluation: prepared speech being evaluated
 }
 
 // Default green / yellow / red minute marks based on the session's max duration
@@ -151,8 +152,10 @@ export type AgendaSettings = {
   meetingDate: string
   startTime: string // "HH:MM"
   preWelcome: number // Welcome duration before the meeting officially starts (minutes)
+  meetingSaa: string // Meeting role; distinct from the club officer with the same title
   defaultBuffer: number
   wordOfTheDay: string
+  wordPartOfSpeech: string
   wordOfTheDayMeaning: string
   sessions: Session[]
   clubInfo: ClubInfo
@@ -174,9 +177,9 @@ export const OFFICER_FIELDS: { key: keyof ClubInfo; label: string }[] = [
   { key: "treasurer", label: "Treasurer" },
   { key: "saa", label: "SAA (Zoom Master)" },
   { key: "ipp", label: "IPP" },
-  { key: "mentors", label: "Club Mentors" },
-  { key: "sponsors", label: "Club Sponsors" },
-  { key: "advisor", label: "Club Advisor" },
+  { key: "mentors", label: "Club Mentor(s)" },
+  { key: "sponsors", label: "Club Sponsor(s)" },
+  { key: "advisor", label: "Club Advisor(s)" },
 ]
 
 export const CHINA_OFFSET_MINUTES = 8 * 60
@@ -200,36 +203,35 @@ export function getMeetingTimeConversions(time: string): Array<{ label: string; 
 }
 
 export const DEFAULT_CLUB_INFO: ClubInfo = {
-  clubName: CLUB_NAME,
-  slogan: CLUB_MISSION,
+  clubName: "Sample Toastmasters Club",
+  slogan: "Your club slogan goes here",
   meetingType: "online",
   inPersonAddress: "",
   onlinePlatform: "Zoom",
-  onlineMeetingId: "286 785 5900",
-  onlinePasscode: "2025BRICS",
+  onlineMeetingId: "",
+  onlinePasscode: "",
   participantNotesTitle: "How to Become a Member",
-  participantNotesBody:
-    "1. Attend one full meeting\n2. Serve as a role taker at least once\n3. Join one of the officer teams (VPE / VPM / VPPR, etc.) and practice servant leadership skills\n4. Pass the Executive Committee's interview",
-  clubNumber: "28678559",
-  area: "K4",
-  division: "K",
-  district: "85",
-  president: "Gisele Alvarenga",
-  vpe: "Gustavo Zhao",
-  vpm: "Francis Liu",
-  vppr: "Christina Qiu",
-  secretary: "Rajesh Dayalan",
-  treasurer: "Panpan Jiang",
-  saa: "Bryant Santana",
-  ipp: "Akeel Alleyne",
-  mentors: "Randal Eastman, Fursey Gotuaco",
-  sponsors: "Avril Zhang, Mia Cao",
-  advisor: "Ben Dai",
-  vpmWechatQr: "/qr-codes/wechat.png",
-  vpmWhatsappQr: "/qr-codes/whatsapp.png",
-  vpmContactNote: 'Add our Vice President Membership (VPM), Francis Liu, to learn more. Note: Please mention "BRICS" in your friend request!',
-  zoomMeetingId: "286 785 5900",
-  zoomPasscode: "2025BRICS",
+  participantNotesBody: "Add your club's membership criteria and next steps here.",
+  clubNumber: "00000000",
+  area: "",
+  division: "",
+  district: "",
+  president: "John Doe",
+  vpe: "John Doe",
+  vpm: "John Doe",
+  vppr: "John Doe",
+  secretary: "John Doe",
+  treasurer: "John Doe",
+  saa: "John Doe",
+  ipp: "John Doe",
+  mentors: "John Doe",
+  sponsors: "John Doe",
+  advisor: "John Doe",
+  vpmWechatQr: "",
+  vpmWhatsappQr: "",
+  vpmContactNote: "Add your VPM contact details or QR codes here.",
+  zoomMeetingId: "",
+  zoomPasscode: "",
 }
 
 // Preset activities in the dropdown menu
@@ -319,6 +321,7 @@ export function makeSession(partial: LegacySession = {}): Session {
     speechTitle: partial.speechTitle ?? "",
     tableTopicsTheme: partial.tableTopicsTheme ?? "",
     participantTimeLimit: partial.participantTimeLimit ?? 2,
+    evaluatedSessionId: partial.evaluatedSessionId ?? "",
   }
 }
 
@@ -347,14 +350,137 @@ export function patchSession(session: Session, partial: Partial<Session>): Sessi
   return { ...session, ...withUpdatedTimers(session, partial) }
 }
 
+export function setMeetingSaa(settings: AgendaSettings, meetingSaa: string): AgendaSettings {
+  const previousMeetingSaa = settings.meetingSaa?.trim()
+  return {
+    ...settings,
+    meetingSaa,
+    sessions: settings.sessions.map((session) => {
+      if (session.activity !== BREAK_ACTIVITY) return session
+      const presenter = session.presenter?.trim()
+      if (presenter && presenter !== previousMeetingSaa && presenter !== "Meeting SAA") return session
+      return { ...session, presenter: meetingSaa }
+    }),
+  }
+}
+
+export type AgendaTemplateId = "standard" | "book-club" | "speechathon"
+
+function openingSessions(): Session[] {
+  return [
+    makeSession({ activity: "Warm-up", presenter: "", durationMax: 5 }),
+    makeSession({ activity: "Opening Remarks", presenter: "President", durationMax: 3 }),
+    makeSession({ activity: "Introduction of the Meeting", presenter: "Toastmaster", durationMax: 5 }),
+    makeSession({ activity: "Introduction of the Timer", presenter: "Timer", durationMax: 2 }),
+    makeSession({ activity: "Introduction of the Grammarian", presenter: "Grammarian", durationMax: 3 }),
+  ]
+}
+
+function preparedSpeeches(count: number): Session[] {
+  return Array.from({ length: count }, (_, index) =>
+    makeSession({
+      activity: "Prepared Speech",
+      presenter: `Speaker ${index + 1}`,
+      durationMin: 5,
+      durationMax: 7,
+      buffer: 2,
+    })
+  )
+}
+
+function individualEvaluations(speeches: Session[]): Session[] {
+  return speeches.map((speech, index) =>
+    makeSession({
+      activity: "Individual Evaluation",
+      presenter: `Evaluator ${index + 1}`,
+      durationMax: 3,
+      evaluatedSessionId: speech.id,
+    })
+  )
+}
+
+function breakSession(meetingSaa: string): Session {
+  return makeSession({
+    activity: BREAK_ACTIVITY,
+    presenter: meetingSaa || "Meeting SAA",
+    speechTitle: "Guest Talk",
+    durationMax: 10,
+    buffer: 2,
+  })
+}
+
+function evaluationReports(): Session[] {
+  return [
+    makeSession({ activity: "General Evaluation", presenter: "General Evaluator", durationMin: 5, durationMax: 7 }),
+    makeSession({ activity: "Grammarian's Report", presenter: "Grammarian", durationMax: 3 }),
+    makeSession({ activity: "Timer's Report", presenter: "Timer", durationMax: 3 }),
+    makeSession({ activity: "Closing and Awards", presenter: "President", durationMax: 5, buffer: 0 }),
+  ]
+}
+
+export function createAgendaTemplateSessions(
+  template: AgendaTemplateId,
+  meetingSaa = "Meeting SAA",
+): Session[] {
+  const opening = openingSessions()
+
+  if (template === "book-club") {
+    const speeches = preparedSpeeches(2)
+    return [
+      ...opening,
+      makeSession({ activity: BOOK_CLUB_DISCUSSION_ACTIVITY, presenter: "Book Club Master", durationMax: 25, buffer: 0 }),
+      makeSession({
+        activity: BOOK_CLUB_TABLE_TOPICS_ACTIVITY,
+        presenter: "Book Club Master",
+        participantTimeLimit: 2,
+        durationMax: 25,
+      }),
+      makeSession({ activity: BOOK_CLUB_MINI_FEEDBACK_ACTIVITY, presenter: "Book Club Master", durationMax: 4 }),
+      makeSession({ activity: BOOK_CLUB_GRAMMARIAN_REPORT_ACTIVITY, presenter: "Grammarian", durationMax: 2 }),
+      makeSession({ activity: BOOK_CLUB_CLOSING_REFLECTION_ACTIVITY, presenter: "Book Club Master", durationMax: 5, buffer: 2 }),
+      ...speeches,
+      breakSession(meetingSaa),
+      ...individualEvaluations(speeches),
+      ...evaluationReports(),
+    ]
+  }
+
+  const speechCount = template === "speechathon" ? 5 : 3
+  const speeches = preparedSpeeches(speechCount)
+  const tableTopics = template === "standard"
+    ? [makeSession({
+        activity: "Table Topics",
+        presenter: "Table Topics Master",
+        participantTimeLimit: 2,
+        durationMax: 18,
+        buffer: 0,
+      })]
+    : []
+  const tableTopicsEvaluation = template === "standard"
+    ? [makeSession({ activity: TABLE_TOPICS_EVALUATION_ACTIVITY, presenter: "Table Topics Evaluator", durationMax: 4 })]
+    : []
+
+  return [
+    ...opening,
+    ...speeches,
+    ...tableTopics,
+    breakSession(meetingSaa),
+    ...individualEvaluations(speeches),
+    ...tableTopicsEvaluation,
+    ...evaluationReports(),
+  ]
+}
+
 export const DEFAULT_SETTINGS: AgendaSettings = {
   meetingTitle: "Regular Meeting",
   meetingDate: "",
   startTime: "19:00",
   preWelcome: 5,
+  meetingSaa: "Meeting SAA",
   defaultBuffer: 1,
-  wordOfTheDay: "",
-  wordOfTheDayMeaning: "",
+  wordOfTheDay: "Word",
+  wordPartOfSpeech: "Part of Speech",
+  wordOfTheDayMeaning: "Definition: Add a concise definition and an example sentence.",
   sessions: [
     makeSession({ activity: "Warm-up", presenter: "", durationMin: 5, durationMax: 5 }),
     makeSession({ activity: "Opening Remarks", presenter: "President", durationMin: 3, durationMax: 3 }),
@@ -421,7 +547,14 @@ export const DEFAULT_SETTINGS: AgendaSettings = {
       durationMax: 7,
       buffer: 2,
     }),
-    makeSession({ activity: BREAK_ACTIVITY, presenter: "All", durationMin: 10, durationMax: 10, buffer: 2 }),
+    makeSession({
+      activity: BREAK_ACTIVITY,
+      presenter: "Meeting SAA",
+      speechTitle: "Guest Talk",
+      durationMin: 10,
+      durationMax: 10,
+      buffer: 2,
+    }),
     makeSession({ activity: "Individual Evaluation", presenter: "Evaluator 1", durationMin: 3, durationMax: 3 }),
     makeSession({ activity: "Individual Evaluation", presenter: "Evaluator 2", durationMin: 3, durationMax: 3 }),
     makeSession({ activity: "Individual Evaluation", presenter: "Evaluator 3", durationMin: 3, durationMax: 3 }),
@@ -466,7 +599,7 @@ export function getSectionRowLabel(row: ComputedRow, sectionKey: string | null):
     return row.tableTopicsTheme?.trim() || "(Untitled Theme)"
   }
   if (sectionKey === "break") {
-    return row.presenter?.trim() || "—"
+    return row.speechTitle?.trim() || "Guest Talk"
   }
   if (sectionKey === "evaluations") {
     return row.activity || "(Untitled)"
@@ -493,7 +626,7 @@ export function getSectionRoleLabel(row: ComputedRow, sectionKey: string | null)
     return parts.filter(Boolean).join(" · ") || "—"
   }
   if (sectionKey === "break") {
-    return "—"
+    return row.presenter?.trim() || "—"
   }
   if (sectionKey === "closing") {
     return row.presenter?.trim() || "—"
@@ -580,7 +713,7 @@ export function computeSchedule(settings: AgendaSettings): {
     rows.push({
       id: "pre-welcome",
       activity: "Welcome",
-      presenter: "Club members",
+      presenter: settings.meetingSaa?.trim() || "Meeting SAA",
       durationMin: settings.preWelcome,
       durationMax: settings.preWelcome,
       buffer: 0,
@@ -657,9 +790,10 @@ export function normalizeSettings(raw: Partial<AgendaSettings>): AgendaSettings 
       timerGreen: s.timerGreen ?? timers.green,
       timerYellow: s.timerYellow ?? timers.yellow,
       timerRed: s.timerRed ?? timers.red,
-      speechTitle: s.speechTitle ?? "",
+      speechTitle: s.speechTitle ?? (s.activity === BREAK_ACTIVITY || s.activity === LEGACY_BREAK_NAME ? "Guest Talk" : ""),
       tableTopicsTheme: s.tableTopicsTheme ?? "",
       participantTimeLimit: s.participantTimeLimit ?? 2,
+      evaluatedSessionId: s.evaluatedSessionId ?? "",
     }
   })
 
@@ -1103,9 +1237,11 @@ export function applyAgendaTemplateImport(settings: AgendaSettings, text: string
   }
 
   if (parsed.sergeantAtArms) {
-    next.clubInfo = { ...next.clubInfo, saa: parsed.sergeantAtArms }
-    matchedFields.push("sergeant-at-arms")
-    addPreview("SAA", parsed.sergeantAtArms)
+    const withMeetingSaa = setMeetingSaa(next, parsed.sergeantAtArms)
+    next.meetingSaa = withMeetingSaa.meetingSaa
+    next.sessions = withMeetingSaa.sessions
+    matchedFields.push("meeting SAA")
+    addPreview("Meeting SAA", parsed.sergeantAtArms)
   }
 
   if (parsed.toastmaster) {

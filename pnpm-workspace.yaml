@@ -2,11 +2,13 @@ allowBuilds:
   '@prisma/client': true
   '@prisma/engines': true
   core-js: true
+  esbuild: true
   msw: true
   prisma: false
   sharp: true
   unrs-resolver: true
 onlyBuiltDependencies:
   - core-js
+  - esbuild
   - msw
   - sharp

@@ -2,29 +2,13 @@ import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { getAuthSession } from "@/lib/auth"
 import { canEditByRole } from "@/lib/permissions"
+import { parseToastmastersRoster } from "@/lib/roster-csv"
 
 async function getMembership(clubId: string, userId: string) {
   return db.clubMembership.findUnique({
     where: { clubId_userId: { clubId, userId } },
     select: { role: true },
   })
-}
-
-function parseCsv(csv: string) {
-  const lines = csv
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-
-  if (lines.length === 0) return [] as Array<{ name: string; memberNumber: string; credential: string }>
-
-  const rows = lines.slice(1)
-  return rows
-    .map((line) => {
-      const [name, memberNumber, credential] = line.split(",").map((part) => part?.trim() ?? "")
-      return { name, memberNumber, credential }
-    })
-    .filter((row) => row.name)
 }
 
 export async function GET(
@@ -53,6 +37,10 @@ export async function GET(
             { name: { contains: q, mode: "insensitive" } },
             { memberNumber: { contains: q, mode: "insensitive" } },
             { credential: { contains: q, mode: "insensitive" } },
+            { email: { contains: q, mode: "insensitive" } },
+            { status: { contains: q, mode: "insensitive" } },
+            { currentPosition: { contains: q, mode: "insensitive" } },
+            { pathwaysEnrolled: { contains: q, mode: "insensitive" } },
           ]
         : undefined,
     },
@@ -82,18 +70,29 @@ export async function POST(
       name?: string
       memberNumber?: string
       credential?: string
+      email?: string
+      status?: string
+      currentPosition?: string
+      pathwaysEnrolled?: string
     }
 
-    if (!body.name?.trim()) {
-      return NextResponse.json({ error: "Name is required" }, { status: 400 })
+    if (!body.memberNumber?.trim() || !body.name?.trim() || !body.credential?.trim()) {
+      return NextResponse.json(
+        { error: "Customer ID, Name, and Credentials are required." },
+        { status: 400 }
+      )
     }
 
     const created = await db.rosterMember.create({
       data: {
         clubId,
         name: body.name.trim(),
-        memberNumber: body.memberNumber?.trim() || null,
-        credential: body.credential?.trim() || null,
+        memberNumber: body.memberNumber.trim(),
+        credential: body.credential.trim(),
+        email: body.email?.trim() || null,
+        status: body.status?.trim() || null,
+        currentPosition: body.currentPosition?.trim() || null,
+        pathwaysEnrolled: body.pathwaysEnrolled?.trim() || null,
       },
     })
 
@@ -129,7 +128,14 @@ export async function PUT(
       return NextResponse.json({ error: "CSV content is required" }, { status: 400 })
     }
 
-    const rows = parseCsv(body.csv)
+    const rows = parseToastmastersRoster(body.csv)
+
+    if (!rows.length) {
+      return NextResponse.json(
+        { error: "No valid roster rows were found. Customer ID, Name, and Credentials are required." },
+        { status: 400 }
+      )
+    }
 
     if (body.replace) {
       await db.rosterMember.deleteMany({ where: { clubId } })
@@ -140,8 +146,12 @@ export async function PUT(
         data: rows.map((row) => ({
           clubId,
           name: row.name,
-          memberNumber: row.memberNumber || null,
-          credential: row.credential || null,
+          memberNumber: row.memberNumber,
+          credential: row.credential,
+          email: row.email || null,
+          status: row.status || null,
+          currentPosition: row.currentPosition || null,
+          pathwaysEnrolled: row.pathwaysEnrolled || null,
         })),
         skipDuplicates: true,
       })

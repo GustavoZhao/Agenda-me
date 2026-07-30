@@ -31,6 +31,17 @@ export async function PATCH(
       name?: string
       memberNumber?: string
       credential?: string
+      email?: string
+      status?: string
+      currentPosition?: string
+      pathwaysEnrolled?: string
+    }
+
+    if (!body.memberNumber?.trim() || !body.name?.trim() || !body.credential?.trim()) {
+      return NextResponse.json(
+        { error: "Customer ID, Name, and Credentials are required." },
+        { status: 400 }
+      )
     }
 
     const existing = await db.rosterMember.findFirst({
@@ -48,9 +59,13 @@ export async function PATCH(
     const updated = await db.rosterMember.update({
       where: { id: memberId },
       data: {
-        name: body.name?.trim() || undefined,
-        memberNumber: body.memberNumber?.trim() || null,
-        credential: body.credential?.trim() || null,
+        name: body.name.trim(),
+        memberNumber: body.memberNumber.trim(),
+        credential: body.credential.trim(),
+        email: body.email?.trim() || null,
+        status: body.status?.trim() || null,
+        currentPosition: body.currentPosition?.trim() || null,
+        pathwaysEnrolled: body.pathwaysEnrolled?.trim() || null,
       },
     })
 

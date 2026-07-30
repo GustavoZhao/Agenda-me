@@ -141,6 +141,10 @@ model RosterMember {
   name           String
   memberNumber   String?
   credential     String?
+  email          String?
+  status         String?
+  currentPosition String?
+  pathwaysEnrolled String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   club           Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)

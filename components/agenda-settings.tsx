@@ -4,7 +4,6 @@ import type React from "react"
 import { useEffect, useState } from "react"
 import {
   ACTIVITY_OPTIONS,
-  applyAgendaTemplateImport,
   BOOK_CLUB_ACTIVITY,
   BOOK_CLUB_CLOSING_REFLECTION_ACTIVITY,
   BOOK_CLUB_DISCUSSION_ACTIVITY,
@@ -12,8 +11,10 @@ import {
   BOOK_CLUB_MINI_FEEDBACK_ACTIVITY,
   BOOK_CLUB_TABLE_TOPICS_ACTIVITY,
   type AgendaSettings,
+  type AgendaTemplateId,
   type ClubInfo,
   findCredentialForMemberName,
+  createAgendaTemplateSessions,
   groupSessionsForDisplay,
   MEMBERSHIP_CSV_PATH,
   type MembershipCredentialEntry,
@@ -27,9 +28,11 @@ import {
   TITLE_PRESET_OPTIONS,
   parseMembershipCredentialCsv,
   sortSessions,
+  setMeetingSaa,
 } from "@/lib/agenda"
 import { Button } from "@/components/ui/button"
-import { ArrowDownWideNarrow, ChevronRight, Copy, GripVertical, Plus, Trash2, Upload, X } from "lucide-react"
+import { SmartImport } from "@/components/smart-import"
+import { ArrowDownWideNarrow, ChevronRight, Copy, GripVertical, Plus, Trash2 } from "lucide-react"
 
 type Props = {
   settings: AgendaSettings
@@ -38,6 +41,8 @@ type Props = {
 }
 
 const CUSTOM_VALUE = "__custom__"
+const OTHER_PLATFORM_VALUE = "__other_platform__"
+const ONLINE_PLATFORMS = ["Zoom", "Teams", "Tencent Meeting"] as const
 
 export function AgendaSettingsPanel({ settings, onChange, showClubInfo = true }: Props) {
   const [dragIndex, setDragIndex] = useState<number | null>(null)
@@ -116,9 +121,30 @@ export function AgendaSettingsPanel({ settings, onChange, showClubInfo = true }:
       }
     }
 
-    update({
-      sessions: settings.sessions.map((s) => (s.id === id ? patchSession(s, nextPartial) : s)),
-    })
+    const updatedSessions = settings.sessions.map((s) => (s.id === id ? patchSession(s, nextPartial) : s))
+    const updatedSession = updatedSessions.find((session) => session.id === id)
+
+    if (
+      updatedSession &&
+      partial.presenter !== undefined &&
+      (updatedSession.activity === "Introduction of the Grammarian" ||
+        updatedSession.activity === "Introduction of the Timer")
+    ) {
+      const reportActivity =
+        updatedSession.activity === "Introduction of the Grammarian"
+          ? "Grammarian's Report"
+          : "Timer's Report"
+      update({
+        sessions: updatedSessions.map((session) =>
+          session.activity === reportActivity
+            ? { ...session, presenter: updatedSession.presenter, title: updatedSession.title }
+            : session
+        ),
+      })
+      return
+    }
+
+    update({ sessions: updatedSessions })
   }
 
   function getDefaultPresenter(activity: string, currentPresenter: string): string {
@@ -254,7 +280,7 @@ export function AgendaSettingsPanel({ settings, onChange, showClubInfo = true }:
   return (
     <div className="flex flex-col gap-6">
       {/* Smart import */}
-      <SmartImportBlock settings={settings} onChange={onChange} />
+      <SmartImport settings={settings} onChange={onChange} />
 
       {/* Club information is managed in the dedicated Club Settings page. */}
       {showClubInfo ? <ClubInfoBlock settings={settings} updateClubInfo={updateClubInfo} /> : null}
@@ -264,9 +290,9 @@ export function AgendaSettingsPanel({ settings, onChange, showClubInfo = true }:
 
       {/* Session list */}
       <section className="rounded-xl border border-border bg-card p-5">
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold text-card-foreground">Sessions</h2>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
               size="sm"
@@ -343,6 +369,7 @@ export function AgendaSettingsPanel({ settings, onChange, showClubInfo = true }:
                           <div className="flex min-w-0 flex-1 flex-col gap-3">
                             <SessionFields
                               session={session}
+                              allSessions={settings.sessions}
                               sectionKey={sectionKey}
                               isCustom={isCustom}
                               onActivityChange={(nextActivity) => changeSessionActivity(session.id, index, nextActivity)}
@@ -387,104 +414,6 @@ export function AgendaSettingsPanel({ settings, onChange, showClubInfo = true }:
           )}
         </div>
       </section>
-    </div>
-  )
-}
-
-function SmartImportBlock({ settings, onChange }: { settings: AgendaSettings; onChange: (next: AgendaSettings) => void }) {
-  const [templateText, setTemplateText] = useState("")
-  const [statusMessage, setStatusMessage] = useState<string | null>(null)
-  const [pendingImport, setPendingImport] = useState<{
-    settings: AgendaSettings
-    matchedFields: string[]
-    previewItems: { label: string; value: string }[]
-  } | null>(null)
-
-  function handleAnalyze() {
-    const pasted = templateText.trim()
-    if (!pasted) {
-      setPendingImport(null)
-      setStatusMessage("Paste the role announcement first, then analyze it.")
-      return
-    }
-
-    const result = applyAgendaTemplateImport(settings, pasted)
-    if (result.matchedFields.length === 0) {
-      setPendingImport(null)
-      setStatusMessage("No recognizable meeting fields were found in that text.")
-      return
-    }
-
-    setPendingImport(result)
-    setStatusMessage(`Found ${result.matchedFields.join(", ")}. Review the preview below, then apply.`)
-  }
-
-  function handleApply() {
-    if (!pendingImport) return
-    onChange(pendingImport.settings)
-    setStatusMessage(`Applied ${pendingImport.matchedFields.join(", ")}.`)
-    setPendingImport(null)
-  }
-
-  function handleReset() {
-    setTemplateText("")
-    setStatusMessage(null)
-    setPendingImport(null)
-  }
-
-  return (
-    <section className="rounded-xl border border-primary/20 bg-card p-5 shadow-sm">
-      <div className="mb-4 flex flex-col gap-1">
-        <h2 className="text-lg font-semibold text-card-foreground">Smart Import</h2>
-        <p className="text-sm text-muted-foreground">
-          Paste a role announcement or signup post here, then auto-fill the meeting date, time, and matching roles.
-        </p>
-      </div>
-
-      <Field label="Paste role template" hint="The parser understands the role list, date/time line, and meeting theme.">
-        <textarea
-          className={`${inputClass} min-h-40 resize-y`}
-          value={templateText}
-          onChange={(e) => setTemplateText(e.target.value)}
-          placeholder={`Paste text like:\nBook your role for BRICS+’s meeting next Saturday!\nJuly 11 | 19:30 - 21:05 (UTC+8)\n...`}
-        />
-      </Field>
-
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <Button type="button" size="sm" onClick={handleAnalyze}>
-          <Upload className="size-4" aria-hidden="true" />
-          Analyze
-        </Button>
-        <Button type="button" size="sm" onClick={handleApply} disabled={!pendingImport}>
-          Apply Changes
-        </Button>
-        <Button type="button" size="sm" variant="outline" onClick={handleReset}>
-          <X className="size-4" aria-hidden="true" />
-          Clear
-        </Button>
-      </div>
-
-      {statusMessage ? <p className="mt-3 text-sm text-muted-foreground">{statusMessage}</p> : null}
-
-      {pendingImport ? (
-        <div className="mt-4 rounded-lg border border-border bg-background/70 p-4">
-          <h3 className="text-sm font-semibold text-foreground">Preview</h3>
-          <dl className="mt-3 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
-            {pendingImport.previewItems.map((item) => (
-              <PreviewItem key={`${item.label}-${item.value}`} label={item.label} value={item.value} />
-            ))}
-          </dl>
-        </div>
-      ) : null}
-    </section>
-  )
-}
-
-function PreviewItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border border-border/70 bg-card px-3 py-2">
-      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
-      <dd className="mt-1 text-sm text-foreground">{value}</dd>
     </div>
   )
 }
@@ -572,6 +501,31 @@ function MeetingSettingsBlock({
   onApplyBuffer: () => void
 }) {
   const [open, setOpen] = useState(false)
+  const [selectedTemplate, setSelectedTemplate] = useState<AgendaTemplateId | "">("")
+  const initialPlatform = settings.clubInfo.onlinePlatform.trim()
+  const [customPlatformSelected, setCustomPlatformSelected] = useState(
+    Boolean(initialPlatform) && !ONLINE_PLATFORMS.includes(initialPlatform as (typeof ONLINE_PLATFORMS)[number]),
+  )
+
+  function updateMeetingInfo(partial: Partial<ClubInfo>) {
+    update({ clubInfo: { ...settings.clubInfo, ...partial } })
+  }
+
+  function applyTemplate(template: AgendaTemplateId) {
+    const confirmed = window.confirm(
+      "Apply this template? It will replace all sessions currently in the agenda."
+    )
+    if (!confirmed) return
+    setSelectedTemplate(template)
+    update({ sessions: createAgendaTemplateSessions(template, settings.meetingSaa) })
+  }
+
+  const selectedMeetingType = settings.clubInfo.meetingType === "in_person" ? "in_person" : "online"
+  const selectedPlatform = customPlatformSelected
+    ? OTHER_PLATFORM_VALUE
+    : ONLINE_PLATFORMS.includes(settings.clubInfo.onlinePlatform as (typeof ONLINE_PLATFORMS)[number])
+      ? settings.clubInfo.onlinePlatform
+      : "Zoom"
 
   return (
     <section className="rounded-xl border border-border bg-card">
@@ -592,6 +546,21 @@ function MeetingSettingsBlock({
       {open && (
         <div className="border-t border-border px-5 py-5">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Template" hint="Selecting a template replaces the current session list.">
+              <select
+                className={inputClass}
+                value={selectedTemplate}
+                onChange={(event) => {
+                  const value = event.target.value as AgendaTemplateId | ""
+                  if (value) applyTemplate(value)
+                }}
+              >
+                <option value="">Choose a meeting template…</option>
+                <option value="standard">Standard 3-Speech Meeting</option>
+                <option value="book-club">Book Club (BRICS+)</option>
+                <option value="speechathon">Speechathon</option>
+              </select>
+            </Field>
             <Field label="Meeting Title">
               <input
                 className={inputClass}
@@ -624,12 +593,28 @@ function MeetingSettingsBlock({
                 onChange={(e) => update({ preWelcome: Math.max(0, Number(e.target.value) || 0) })}
               />
             </Field>
+            <Field label="Meeting SAA" hint="Meeting role only; this does not change the club officer record.">
+              <input
+                className={inputClass}
+                value={settings.meetingSaa}
+                onChange={(e) => update(setMeetingSaa(settings, e.target.value))}
+                placeholder="Meeting SAA"
+              />
+            </Field>
             <Field label="Word of the Day">
               <input
                 className={inputClass}
-                placeholder="Enter a keyword or phrase"
+                placeholder="Word"
                 value={settings.wordOfTheDay}
                 onChange={(e) => update({ wordOfTheDay: e.target.value })}
+              />
+            </Field>
+            <Field label="Part of Speech">
+              <input
+                className={inputClass}
+                placeholder="e.g. noun, verb, adjective"
+                value={settings.wordPartOfSpeech}
+                onChange={(e) => update({ wordPartOfSpeech: e.target.value })}
               />
             </Field>
             <Field label="Word Meaning / Definition" hint="Optional explanation for the word">
@@ -655,6 +640,99 @@ function MeetingSettingsBlock({
               </div>
             </Field>
           </div>
+
+          <div className="mt-6 border-t border-border pt-5">
+            <h3 className="text-sm font-semibold text-foreground">Meeting Information</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Choose how attendees will join this meeting.
+            </p>
+
+            <div className="mt-3 inline-flex max-w-full rounded-lg border border-border bg-muted/50 p-1">
+              {([
+                { value: "online", label: "Online" },
+                { value: "in_person", label: "In person" },
+              ] as const).map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={selectedMeetingType === option.value}
+                  onClick={() => updateMeetingInfo({ meetingType: option.value })}
+                  className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+                    selectedMeetingType === option.value
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+
+            {selectedMeetingType === "in_person" ? (
+              <div className="mt-4">
+                <Field label="Meeting Address">
+                  <input
+                    className={inputClass}
+                    value={settings.clubInfo.inPersonAddress}
+                    onChange={(event) => updateMeetingInfo({ inPersonAddress: event.target.value })}
+                    placeholder="Enter the venue name and full address"
+                  />
+                </Field>
+              </div>
+            ) : (
+              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field label="Meeting Platform">
+                  <select
+                    className={inputClass}
+                    value={selectedPlatform}
+                    onChange={(event) => {
+                      if (event.target.value === OTHER_PLATFORM_VALUE) {
+                        setCustomPlatformSelected(true)
+                        updateMeetingInfo({ onlinePlatform: "" })
+                        return
+                      }
+                      setCustomPlatformSelected(false)
+                      updateMeetingInfo({ onlinePlatform: event.target.value })
+                    }}
+                  >
+                    {ONLINE_PLATFORMS.map((platform) => (
+                      <option key={platform} value={platform}>{platform}</option>
+                    ))}
+                    <option value={OTHER_PLATFORM_VALUE}>Other</option>
+                  </select>
+                </Field>
+
+                {customPlatformSelected ? (
+                  <Field label="Other Platform">
+                    <input
+                      className={inputClass}
+                      value={settings.clubInfo.onlinePlatform}
+                      onChange={(event) => updateMeetingInfo({ onlinePlatform: event.target.value })}
+                      placeholder="Enter the platform name"
+                    />
+                  </Field>
+                ) : null}
+
+                <Field label="Meeting ID">
+                  <input
+                    className={inputClass}
+                    value={settings.clubInfo.onlineMeetingId}
+                    onChange={(event) => updateMeetingInfo({ onlineMeetingId: event.target.value })}
+                    placeholder="Enter the meeting ID"
+                  />
+                </Field>
+
+                <Field label="Passcode">
+                  <input
+                    className={inputClass}
+                    value={settings.clubInfo.onlinePasscode}
+                    onChange={(event) => updateMeetingInfo({ onlinePasscode: event.target.value })}
+                    placeholder="Enter the meeting passcode"
+                  />
+                </Field>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </section>
@@ -673,18 +751,22 @@ function SectionDivider({ label }: { label: string }) {
 // Session form fields — layout varies by section divider
 function SessionFields({
   session,
+  allSessions,
   sectionKey,
   isCustom,
   onActivityChange,
   onUpdate,
 }: {
   session: Session
+  allSessions: Session[]
   sectionKey: string
   isCustom: boolean
   onActivityChange: (nextActivity: string) => void
   onUpdate: (partial: Partial<Session>) => void
 }) {
   const inSection = sectionKey !== "general"
+  const preparedSpeechOptions = allSessions.filter((candidate) => candidate.activity === "Prepared Speech")
+  const isLinkedReport = session.activity === "Grammarian's Report" || session.activity === "Timer's Report"
 
   return (
     <>
@@ -805,14 +887,50 @@ function SessionFields({
         </div>
       )}
 
-      {(sectionKey === "break" || sectionKey === "evaluations" || sectionKey === "closing") && (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      {sectionKey === "break" && (
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <input
+            className={`${inputClass} min-w-0`}
+            placeholder="Break title"
+            value={session.speechTitle ?? ""}
+            onChange={(e) => onUpdate({ speechTitle: e.target.value })}
+          />
           <input
             className={`${inputClass} min-w-0`}
             placeholder="Presenter / Role"
             value={session.presenter}
             onChange={(e) => onUpdate({ presenter: e.target.value })}
           />
+          <TitleField value={session.title ?? ""} onChange={(title) => onUpdate({ title })} />
+        </div>
+      )}
+
+      {(sectionKey === "evaluations" || sectionKey === "closing") && (
+        <div className={`grid grid-cols-1 gap-2 ${session.activity === "Individual Evaluation" ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+          <input
+            className={`${inputClass} min-w-0`}
+            placeholder="Presenter / Role"
+            value={session.presenter}
+            onChange={(e) => onUpdate({ presenter: e.target.value })}
+            disabled={isLinkedReport}
+            title={isLinkedReport ? "Automatically synchronized with the corresponding introduction role." : undefined}
+          />
+          {session.activity === "Individual Evaluation" ? (
+            <select
+              className={`${inputClass} min-w-0`}
+              value={session.evaluatedSessionId ?? ""}
+              onChange={(event) => onUpdate({ evaluatedSessionId: event.target.value })}
+              aria-label="Speech being evaluated"
+            >
+              <option value="">Select speaker to evaluate…</option>
+              {preparedSpeechOptions.map((speech, index) => (
+                <option key={speech.id} value={speech.id}>
+                  {speech.presenter?.trim() || `Speaker ${index + 1}`}
+                  {speech.speechTitle?.trim() ? ` — ${speech.speechTitle.trim()}` : ""}
+                </option>
+              ))}
+            </select>
+          ) : null}
           <TitleField value={session.title ?? ""} onChange={(title) => onUpdate({ title })} />
         </div>
       )}
@@ -932,8 +1050,6 @@ function DurationRangeFields({
   showBuffer?: boolean
   inline?: boolean
 }) {
-  const MIN_GAP = 0.5
-
   const durationFields = (
     <div className="flex flex-col gap-2">
       <label className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
@@ -943,34 +1059,10 @@ function DurationRangeFields({
           min={0}
           step={0.5}
           className={`${inputClass} w-16`}
-          value={session.durationMin}
-          onChange={(e) => {
-            const nextMin = Math.max(0, Number(e.target.value) || 0)
-            onUpdate({ durationMin: nextMin })
-          }}
-          onBlur={(e) => {
-            const nextMin = Math.max(0, Number(e.target.value) || 0)
-            if (session.durationMax <= nextMin) {
-              onUpdate({ durationMin: nextMin, durationMax: nextMin + MIN_GAP })
-            }
-          }}
-        />
-        <span>–</span>
-        <input
-          type="number"
-          min={0}
-          step={0.5}
-          className={`${inputClass} w-16`}
           value={session.durationMax}
           onChange={(e) => {
             const nextMax = Math.max(0, Number(e.target.value) || 0)
             onUpdate({ durationMax: nextMax })
-          }}
-          onBlur={(e) => {
-            const nextMax = Math.max(0, Number(e.target.value) || 0)
-            if (nextMax <= session.durationMin) {
-              onUpdate({ durationMax: session.durationMin + MIN_GAP })
-            }
           }}
         />
         <span>min</span>

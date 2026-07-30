@@ -2,7 +2,9 @@
 
 import { ChangeEvent, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
+import { truncateLabel } from "@/lib/display"
+import { Upload } from "lucide-react"
 
 type ClubSummary = {
   role: "owner" | "admin" | "editor" | "viewer"
@@ -17,6 +19,22 @@ type RosterItem = {
   name: string
   memberNumber: string | null
   credential: string | null
+  email: string | null
+  status: string | null
+  currentPosition: string | null
+  pathwaysEnrolled: string | null
+}
+
+type MemberDraft = Omit<RosterItem, "id">
+
+const EMPTY_MEMBER: MemberDraft = {
+  memberNumber: "",
+  name: "",
+  credential: "",
+  email: "",
+  status: "",
+  currentPosition: "",
+  pathwaysEnrolled: "",
 }
 
 export default function RosterPage() {
@@ -24,9 +42,8 @@ export default function RosterPage() {
   const [activeClubId, setActiveClubId] = useState("")
   const [query, setQuery] = useState("")
   const [items, setItems] = useState<RosterItem[]>([])
-  const [newName, setNewName] = useState("")
-  const [newNumber, setNewNumber] = useState("")
-  const [newCredential, setNewCredential] = useState("")
+  const [newMember, setNewMember] = useState<MemberDraft>(EMPTY_MEMBER)
+  const [selectedFileName, setSelectedFileName] = useState("")
   const [message, setMessage] = useState<string | null>(null)
 
   useEffect(() => {
@@ -64,16 +81,20 @@ export default function RosterPage() {
   }, [activeClubId, clubs])
 
   async function addMember() {
-    if (!activeClubId || !newName.trim()) return
+    if (
+      !activeClubId ||
+      !newMember.memberNumber?.trim() ||
+      !newMember.name.trim() ||
+      !newMember.credential?.trim()
+    ) {
+      setMessage("Customer ID, Name, and Credentials are required.")
+      return
+    }
 
     const response = await fetch(`/api/clubs/${encodeURIComponent(activeClubId)}/roster`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: newName,
-        memberNumber: newNumber,
-        credential: newCredential,
-      }),
+      body: JSON.stringify(newMember),
     })
 
     if (!response.ok) {
@@ -83,9 +104,7 @@ export default function RosterPage() {
 
     const created = (await response.json()) as RosterItem
     setItems((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)))
-    setNewName("")
-    setNewNumber("")
-    setNewCredential("")
+    setNewMember(EMPTY_MEMBER)
     setMessage("Member added.")
   }
 
@@ -125,17 +144,19 @@ export default function RosterPage() {
     if (!activeClubId || !event.target.files?.[0]) return
 
     const text = await event.target.files[0].text()
+    setSelectedFileName(event.target.files[0].name)
     const response = await fetch(`/api/clubs/${encodeURIComponent(activeClubId)}/roster`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         csv: text,
-        replace: false,
+        replace: true,
       }),
     })
 
     if (!response.ok) {
-      setMessage("Failed to import CSV.")
+      const data = (await response.json().catch(() => ({}))) as { error?: string }
+      setMessage(data.error || "Failed to import the roster file.")
       return
     }
 
@@ -171,25 +192,53 @@ export default function RosterPage() {
           >
             {clubs.map((item) => (
               <option key={item.club.id} value={item.club.id}>
-                {item.club.name} ({item.role})
+                {truncateLabel(item.club.name)} ({item.role})
               </option>
             ))}
           </select>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <input type="file" accept=".csv,text/csv" onChange={importCsv} disabled={!canEdit} />
-            <span className="text-xs text-muted-foreground">CSV columns: name,memberNumber,credential</span>
+          <div className="flex flex-wrap items-center gap-3">
+            <label className={buttonVariants({ variant: "outline", size: "sm", className: !canEdit ? "pointer-events-none opacity-50" : "cursor-pointer" })}>
+              <Upload className="size-4" aria-hidden="true" />
+              Choose CSV File
+              <input
+                type="file"
+                accept=".csv,.tsv,text/csv,text/tab-separated-values"
+                onChange={importCsv}
+                disabled={!canEdit}
+                className="sr-only"
+              />
+            </label>
+            <span className="text-xs text-muted-foreground">
+              {selectedFileName || "No file selected"}
+            </span>
           </div>
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Club officers can download the membership roster from the Toastmasters website:
+            Profile → Club Central → Membership Management → Export Excel/CSV. Upload the exported
+            CSV file here to synchronize your club&apos;s member roster.
+          </p>
         </section>
 
         <section className="rounded-lg border border-border bg-card p-4 space-y-3">
           <h2 className="text-sm font-semibold text-foreground">Add Member</h2>
-          <div className="grid gap-2 sm:grid-cols-3">
-            <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Name" className="rounded-md border border-border bg-background px-3 py-2 text-sm" disabled={!canEdit} />
-            <input value={newNumber} onChange={(e) => setNewNumber(e.target.value)} placeholder="Member Number" className="rounded-md border border-border bg-background px-3 py-2 text-sm" disabled={!canEdit} />
-            <input value={newCredential} onChange={(e) => setNewCredential(e.target.value)} placeholder="Credential" className="rounded-md border border-border bg-background px-3 py-2 text-sm" disabled={!canEdit} />
+          <p className="text-xs text-muted-foreground"><span className="text-destructive">*</span> Required fields</p>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            <MemberInput label="Customer ID" required value={newMember.memberNumber ?? ""} onChange={(memberNumber) => setNewMember((current) => ({ ...current, memberNumber }))} disabled={!canEdit} />
+            <MemberInput label="Name" required value={newMember.name} onChange={(name) => setNewMember((current) => ({ ...current, name }))} disabled={!canEdit} />
+            <MemberInput label="Credentials" required value={newMember.credential ?? ""} onChange={(credential) => setNewMember((current) => ({ ...current, credential }))} disabled={!canEdit} />
+            <MemberInput label="Email" type="email" value={newMember.email ?? ""} onChange={(email) => setNewMember((current) => ({ ...current, email }))} disabled={!canEdit} />
+            <MemberInput label="Status" value={newMember.status ?? ""} onChange={(status) => setNewMember((current) => ({ ...current, status }))} disabled={!canEdit} />
+            <MemberInput label="Current Position" value={newMember.currentPosition ?? ""} onChange={(currentPosition) => setNewMember((current) => ({ ...current, currentPosition }))} disabled={!canEdit} />
+            <MemberInput label="Pathways Enrolled" value={newMember.pathwaysEnrolled ?? ""} onChange={(pathwaysEnrolled) => setNewMember((current) => ({ ...current, pathwaysEnrolled }))} disabled={!canEdit} />
           </div>
-          <Button type="button" onClick={addMember} disabled={!canEdit}>Add Member</Button>
+          <Button
+            type="button"
+            onClick={addMember}
+            disabled={!canEdit || !newMember.memberNumber?.trim() || !newMember.name.trim() || !newMember.credential?.trim()}
+          >
+            Add Member
+          </Button>
         </section>
 
         <section className="rounded-lg border border-border bg-card p-4 space-y-3">
@@ -205,47 +254,39 @@ export default function RosterPage() {
 
           <div className="space-y-2">
             {items.map((item) => (
-              <article key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border p-3">
-                <div className="grid w-full gap-2 sm:grid-cols-3">
-                  <input
-                    value={item.name}
-                    onChange={(event) =>
-                      setItems((prev) =>
-                        prev.map((candidate) =>
-                          candidate.id === item.id ? { ...candidate, name: event.target.value } : candidate
+              <article
+                key={item.id}
+                className={`flex flex-wrap items-center justify-between gap-3 rounded-md border border-border p-3 ${
+                  item.status?.trim().toLowerCase() === "unpaidmember" ? "bg-muted/60 opacity-60 grayscale" : ""
+                }`}
+              >
+                <div className="grid w-full gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {([
+                    ["memberNumber", "Customer ID", true, "text"],
+                    ["name", "Name", true, "text"],
+                    ["credential", "Credentials", true, "text"],
+                    ["email", "Email", false, "email"],
+                    ["status", "Status", false, "text"],
+                    ["currentPosition", "Current Position", false, "text"],
+                    ["pathwaysEnrolled", "Pathways Enrolled", false, "text"],
+                  ] as const).map(([key, label, required, type]) => (
+                    <MemberInput
+                      key={key}
+                      label={label}
+                      required={required}
+                      type={type}
+                      value={item[key] ?? ""}
+                      onChange={(value) =>
+                        setItems((current) =>
+                          current.map((candidate) =>
+                            candidate.id === item.id ? { ...candidate, [key]: value } : candidate
+                          )
                         )
-                      )
-                    }
-                    className="rounded-md border border-border bg-background px-2 py-1 text-sm"
-                    disabled={!canEdit}
-                    placeholder="Name"
-                  />
-                  <input
-                    value={item.memberNumber ?? ""}
-                    onChange={(event) =>
-                      setItems((prev) =>
-                        prev.map((candidate) =>
-                          candidate.id === item.id ? { ...candidate, memberNumber: event.target.value } : candidate
-                        )
-                      )
-                    }
-                    className="rounded-md border border-border bg-background px-2 py-1 text-sm"
-                    disabled={!canEdit}
-                    placeholder="Member Number"
-                  />
-                  <input
-                    value={item.credential ?? ""}
-                    onChange={(event) =>
-                      setItems((prev) =>
-                        prev.map((candidate) =>
-                          candidate.id === item.id ? { ...candidate, credential: event.target.value } : candidate
-                        )
-                      )
-                    }
-                    className="rounded-md border border-border bg-background px-2 py-1 text-sm"
-                    disabled={!canEdit}
-                    placeholder="Credential"
-                  />
+                      }
+                      disabled={!canEdit}
+                      compact
+                    />
+                  ))}
                 </div>
                 {canEdit ? (
                   <div className="flex items-center gap-2">
@@ -265,5 +306,42 @@ export default function RosterPage() {
         {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
       </div>
     </main>
+  )
+}
+
+function MemberInput({
+  label,
+  value,
+  onChange,
+  disabled,
+  required = false,
+  type = "text",
+  compact = false,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  disabled: boolean
+  required?: boolean
+  type?: "text" | "email"
+  compact?: boolean
+}) {
+  return (
+    <label className="block min-w-0 text-xs text-muted-foreground">
+      <span className="mb-1 block">
+        {label}{required ? <span className="text-destructive"> *</span> : null}
+      </span>
+      <input
+        type={type}
+        value={value}
+        required={required}
+        onChange={(event) => onChange(event.target.value)}
+        disabled={disabled}
+        placeholder={label}
+        className={`w-full rounded-md border border-border bg-background px-3 text-sm text-foreground disabled:opacity-60 ${
+          compact ? "py-1.5" : "py-2"
+        }`}
+      />
+    </label>
   )
 }

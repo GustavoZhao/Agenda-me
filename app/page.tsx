@@ -1,8 +1,9 @@
 "use client"
 
 import { Suspense, useEffect, useState } from "react"
-import { useSearchParams } from "next/navigation"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
+import { signOut as nextAuthSignOut } from "next-auth/react"
 import {
   type AgendaSettings,
   DEFAULT_SETTINGS,
@@ -10,10 +11,13 @@ import {
 } from "@/lib/agenda"
 import { AgendaSettingsPanel } from "@/components/agenda-settings"
 import { AgendaPreview } from "@/components/agenda-preview"
+import { AgendaToolbar } from "@/components/agenda-toolbar"
 import { Button } from "@/components/ui/button"
-import { Eye, LogIn, LogOut, Moon, Printer, RotateCcw, Save, Settings2, SunMedium } from "lucide-react"
+import { exportAgendaAsPng } from "@/lib/export-agenda"
+import { Building2, Eye, Link2, ListChecks, LogOut, Settings2, UserPlus, X } from "lucide-react"
 
-const STORAGE_KEY = "toastmasters-agenda-v1"
+const GUEST_STORAGE_KEY = "toastmasters-agenda-guest-v2"
+const MEMBER_STORAGE_KEY = "toastmasters-agenda-member-v2"
 
 type Tab = "settings" | "preview"
 
@@ -32,37 +36,18 @@ function PageContent() {
   const [loaded, setLoaded] = useState(false)
   const [theme, setTheme] = useState<"light" | "dark">("light")
   const [shareMessage, setShareMessage] = useState<string | null>(null)
+  const [isExporting, setIsExporting] = useState(false)
   const [currentSlug, setCurrentSlug] = useState<string | null>(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [authChecked, setAuthChecked] = useState(false)
   const [memberName, setMemberName] = useState("")
   const [clubs, setClubs] = useState<ClubSummary[]>([])
   const [activeClubId, setActiveClubId] = useState("")
+  const [showSignOutDialog, setShowSignOutDialog] = useState(false)
+  const [isSigningOut, setIsSigningOut] = useState(false)
+  const [showGuestGuide, setShowGuestGuide] = useState(true)
 
   const editingSlug = searchParams.get("slug")
-
-  // Restore config from local storage
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      if (raw) {
-        const parsed = JSON.parse(raw) as Partial<AgendaSettings>
-        setSettings(normalizeSettings(parsed))
-      }
-    } catch {
-      // ignore parse errors
-    }
-    setLoaded(true)
-  }, [])
-
-  // Persist config
-  useEffect(() => {
-    if (!loaded) return
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
-    } catch {
-      // ignore storage errors
-    }
-  }, [settings, loaded])
 
   useEffect(() => {
     const storedTheme = window.localStorage.getItem("agenda-theme")
@@ -94,11 +79,42 @@ function PageContent() {
       } catch {
         setIsAuthenticated(false)
         setMemberName("")
+      } finally {
+        setAuthChecked(true)
       }
     }
 
     loadSession()
   }, [])
+
+  // Keep guest drafts separate from signed-in club data so signing out never
+  // exposes the previous member's club profile in the anonymous template.
+  useEffect(() => {
+    if (!authChecked || editingSlug) return
+    const storageKey = isAuthenticated ? MEMBER_STORAGE_KEY : GUEST_STORAGE_KEY
+    try {
+      const raw = localStorage.getItem(storageKey)
+      if (raw) {
+        const parsed = JSON.parse(raw) as Partial<AgendaSettings>
+        setSettings(normalizeSettings(parsed))
+      } else {
+        setSettings(DEFAULT_SETTINGS)
+      }
+    } catch {
+      setSettings(DEFAULT_SETTINGS)
+    }
+    setLoaded(true)
+  }, [authChecked, editingSlug, isAuthenticated])
+
+  useEffect(() => {
+    if (!loaded || !authChecked || editingSlug) return
+    const storageKey = isAuthenticated ? MEMBER_STORAGE_KEY : GUEST_STORAGE_KEY
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(settings))
+    } catch {
+      // ignore storage errors
+    }
+  }, [authChecked, editingSlug, isAuthenticated, loaded, settings])
 
   useEffect(() => {
     async function loadClubs() {
@@ -172,33 +188,33 @@ function PageContent() {
           ...prev,
           clubInfo: {
             ...prev.clubInfo,
-            clubName: detail.club.name || prev.clubInfo.clubName,
-            slogan: detail.club.slogan || prev.clubInfo.slogan,
-            meetingType: detail.club.meetingType || prev.clubInfo.meetingType,
-            inPersonAddress: detail.club.inPersonAddress || prev.clubInfo.inPersonAddress,
-            onlinePlatform: detail.club.onlinePlatform || prev.clubInfo.onlinePlatform,
-            onlineMeetingId: detail.club.onlineMeetingId || prev.clubInfo.onlineMeetingId,
-            onlinePasscode: detail.club.onlinePasscode || prev.clubInfo.onlinePasscode,
-            president: detail.club.president || prev.clubInfo.president,
-            vpe: detail.club.vpe || prev.clubInfo.vpe,
-            vpm: detail.club.vpm || prev.clubInfo.vpm,
-            vppr: detail.club.vppr || prev.clubInfo.vppr,
-            secretary: detail.club.secretary || prev.clubInfo.secretary,
-            treasurer: detail.club.treasurer || prev.clubInfo.treasurer,
-            saa: detail.club.saa || prev.clubInfo.saa,
-            ipp: detail.club.ipp || prev.clubInfo.ipp,
-            mentors: detail.club.mentors || prev.clubInfo.mentors,
-            sponsors: detail.club.sponsors || prev.clubInfo.sponsors,
-            advisor: detail.club.advisor || prev.clubInfo.advisor,
-            participantNotesTitle: detail.club.participantNotesTitle || prev.clubInfo.participantNotesTitle,
-            participantNotesBody: detail.club.participantNotesBody || prev.clubInfo.participantNotesBody,
-            vpmContactNote: detail.club.vpmContactNote || prev.clubInfo.vpmContactNote,
-            clubNumber: detail.club.clubNumber || prev.clubInfo.clubNumber,
-            area: detail.club.area || prev.clubInfo.area,
-            division: detail.club.division || prev.clubInfo.division,
-            district: detail.club.district || prev.clubInfo.district,
-            vpmWechatQr: detail.club.wechatQrUrl || prev.clubInfo.vpmWechatQr,
-            vpmWhatsappQr: detail.club.whatsappQrUrl || prev.clubInfo.vpmWhatsappQr,
+            clubName: detail.club.name,
+            slogan: detail.club.slogan ?? "",
+            meetingType: detail.club.meetingType,
+            inPersonAddress: detail.club.inPersonAddress ?? "",
+            onlinePlatform: detail.club.onlinePlatform ?? "",
+            onlineMeetingId: detail.club.onlineMeetingId ?? "",
+            onlinePasscode: detail.club.onlinePasscode ?? "",
+            president: detail.club.president ?? "",
+            vpe: detail.club.vpe ?? "",
+            vpm: detail.club.vpm ?? "",
+            vppr: detail.club.vppr ?? "",
+            secretary: detail.club.secretary ?? "",
+            treasurer: detail.club.treasurer ?? "",
+            saa: detail.club.saa ?? "",
+            ipp: detail.club.ipp ?? "",
+            mentors: detail.club.mentors ?? "",
+            sponsors: detail.club.sponsors ?? "",
+            advisor: detail.club.advisor ?? "",
+            participantNotesTitle: detail.club.participantNotesTitle ?? "",
+            participantNotesBody: detail.club.participantNotesBody ?? "",
+            vpmContactNote: detail.club.vpmContactNote ?? "",
+            clubNumber: detail.club.clubNumber ?? "",
+            area: detail.club.area ?? "",
+            division: detail.club.division ?? "",
+            district: detail.club.district ?? "",
+            vpmWechatQr: detail.club.wechatQrUrl ?? "",
+            vpmWhatsappQr: detail.club.whatsappQrUrl ?? "",
           },
         }))
       } catch {
@@ -234,38 +250,8 @@ function PageContent() {
 
   async function saveAndShare() {
     if (!isAuthenticated) {
-      try {
-        const response = await fetch("/api/share/save", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(settings),
-        })
-
-        if (!response.ok) {
-          setShareMessage("Failed to create temporary share link. Please try again.")
-          return
-        }
-
-        const payload = (await response.json()) as { shareId?: string }
-        if (!payload.shareId) {
-          setShareMessage("Temporary link was created but no URL was returned.")
-          return
-        }
-
-        const url = `${window.location.origin}/share?id=${encodeURIComponent(payload.shareId)}`
-
-        try {
-          await navigator.clipboard.writeText(url)
-        } catch {
-          // ignore clipboard errors
-        }
-
-        window.open(url, "_blank", "noopener,noreferrer")
-        setShareMessage("Temporary share link created. The link has been copied to your clipboard.")
-      } catch (error) {
-        console.error("Error creating temporary share link:", error)
-        setShareMessage("Failed to create temporary share link. Please try again.")
-      }
+      setShowGuestGuide(true)
+      setShareMessage("Create an account or sign in to save club information and share a finished agenda link.")
       return
     }
 
@@ -306,74 +292,101 @@ function PageContent() {
     }
   }
 
-  async function signIn() {
-    window.location.href = "/auth/signin"
+  async function confirmSignOut() {
+    setIsSigningOut(true)
+    await nextAuthSignOut({ redirect: false })
+    window.location.assign("/")
   }
 
-  async function signOut() {
-    window.location.href = "/api/auth/signout"
+  async function exportAgenda() {
+    setIsExporting(true)
+    setShareMessage(null)
+    try {
+      await exportAgendaAsPng(settings)
+      setShareMessage("Agenda PNG exported successfully.")
+    } catch (error) {
+      console.error("Failed to export agenda:", error)
+      setShareMessage("Failed to export the agenda image. Please try again.")
+    } finally {
+      setIsExporting(false)
+    }
   }
 
   return (
-    <main className="min-h-screen bg-background">
+    <>
+    <main
+      className={`min-h-screen overflow-x-hidden bg-background transition-[filter] duration-200 ${
+        showSignOutDialog ? "pointer-events-none brightness-50 blur-[2px]" : ""
+      }`}
+      aria-hidden={showSignOutDialog}
+    >
       <div className="mx-auto max-w-7xl px-2 py-6 sm:px-3 lg:px-4">
         {/* Top toolbar */}
-        <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-xl font-bold text-foreground">BRICS+ Meeting Agenda</h1>
-            <p className="text-sm text-muted-foreground">Configure sessions and timing to auto-generate the meeting agenda</p>
+        <header className="mb-6 flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="min-w-0">
+            <h1 className="font-black text-xl text-foreground [font-family:var(--font-montserrat)]">
+              Speechaholic
+            </h1>
+            <p className="max-w-2xl text-sm text-muted-foreground">
+              Plan meeting roles, sessions, speeches, and timing, then preview, print, or export a polished
+              agenda for your Toastmasters meeting.
+            </p>
           </div>
-          <div className="flex items-center gap-2 print:hidden">
-            {isAuthenticated ? (
-              <span className="rounded-md border border-border bg-card px-3 py-1 text-sm text-foreground">
-                {memberName}
-              </span>
-            ) : null}
-            {isAuthenticated && clubs.length > 0 ? (
-              <select
-                value={activeClubId}
-                onChange={(event) => setActiveClubId(event.target.value)}
-                className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground"
-                aria-label="Active club"
-              >
-                {clubs.map((item) => (
-                  <option key={item.club.id} value={item.club.id}>
-                    {item.club.name} ({item.role})
-                  </option>
-                ))}
-              </select>
-            ) : null}
-            <Link href="/my-agendas">
-              <Button type="button" variant="outline" size="sm">My Agendas</Button>
-            </Link>
-            <Link href="/club-settings">
-              <Button type="button" variant="outline" size="sm">Club Settings</Button>
-            </Link>
-            <Link href="/roster">
-              <Button type="button" variant="outline" size="sm">Roster</Button>
-            </Link>
-            <Button type="button" variant="outline" size="sm" onClick={isAuthenticated ? signOut : signIn}>
-              {isAuthenticated ? <LogOut className="size-4" aria-hidden="true" /> : <LogIn className="size-4" aria-hidden="true" />}
-              {isAuthenticated ? "Sign out" : "Sign in"}
-            </Button>
-            <Button type="button" variant="outline" size="sm" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
-              {theme === "dark" ? <SunMedium className="size-4" aria-hidden="true" /> : <Moon className="size-4" aria-hidden="true" />}
-              {theme === "dark" ? "Light" : "Dark"}
-            </Button>
-            <Button type="button" variant="outline" size="sm" onClick={reset}>
-              <RotateCcw className="size-4" aria-hidden="true" />
-              Reset
-            </Button>
-            <Button type="button" variant="outline" size="sm" onClick={saveAndShare}>
-              <Save className="size-4" aria-hidden="true" />
-              Save
-            </Button>
-            <Button type="button" size="sm" onClick={() => window.print()}>
-              <Printer className="size-4" aria-hidden="true" />
-              Print
-            </Button>
-          </div>
+          <AgendaToolbar
+            activeClubId={activeClubId}
+            clubs={clubs}
+            isAuthenticated={isAuthenticated}
+            memberName={memberName}
+            theme={theme}
+            isExporting={isExporting}
+            onActiveClubChange={setActiveClubId}
+            onExport={exportAgenda}
+            onPrint={() => window.print()}
+            onReset={reset}
+            onSave={saveAndShare}
+            onSignOut={() => setShowSignOutDialog(true)}
+            onThemeToggle={() => setTheme(theme === "dark" ? "light" : "dark")}
+          />
         </header>
+
+        {authChecked && !isAuthenticated && showGuestGuide ? (
+          <section className="relative mb-6 rounded-xl border border-dashed border-border bg-muted/25 p-4 pr-12 print:hidden">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Orientation tip</p>
+              <h2 className="mt-1 text-sm font-semibold text-foreground">Save and share your club agenda</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Create a free account to save club information and publish a reusable agenda link.
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowGuestGuide(false)}
+                className="absolute right-3 top-3 rounded-md p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                aria-label="Close getting started guide"
+              >
+                <X className="size-5" aria-hidden="true" />
+              </button>
+            </div>
+            <ol className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                { icon: UserPlus, title: "1. Create an account", text: "Register or sign in to keep your work.", link: "/auth/signin", linkText: "Register or sign in" },
+                { icon: Building2, title: "2. Add your club", text: "Save the club profile, officers, meeting details, and roster." },
+                { icon: ListChecks, title: "3. Build the agenda", text: "Configure meeting information, roles, sessions, and timing." },
+                { icon: Link2, title: "4. Save and share", text: "Save the finished agenda and copy its permanent sharing link." },
+              ].map((step) => (
+                <li key={step.title} className="rounded-lg bg-background/70 p-3">
+                  <step.icon className="mb-2 size-4 text-muted-foreground" aria-hidden="true" />
+                  <h3 className="text-xs font-semibold text-foreground">{step.title}</h3>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{step.text}</p>
+                  {step.link ? (
+                    <Link href={step.link} className="mt-2 inline-block text-xs font-medium text-primary underline-offset-4 hover:underline">
+                      {step.linkText}
+                    </Link>
+                  ) : null}
+                </li>
+              ))}
+            </ol>
+          </section>
+        ) : null}
 
         {shareMessage ? (
           <p className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300">
@@ -409,6 +422,61 @@ function PageContent() {
         )}
       </div>
     </main>
+    {showSignOutDialog ? (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm print:hidden"
+        role="presentation"
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget && !isSigningOut) setShowSignOutDialog(false)
+        }}
+      >
+        <section
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="sign-out-title"
+          aria-describedby="sign-out-description"
+          className="w-full max-w-sm overflow-hidden rounded-xl border border-[#F2DF74]/40 bg-card shadow-2xl"
+        >
+          <div className="bg-gradient-to-r from-[#3B0104] to-[#781327] px-5 py-4 text-white">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <LogOut className="size-5" aria-hidden="true" />
+                <h2 id="sign-out-title" className="text-lg font-semibold">Sign out</h2>
+              </div>
+              <button
+                type="button"
+                className="rounded-md p-1 text-white/80 transition hover:bg-white/10 hover:text-white"
+                onClick={() => setShowSignOutDialog(false)}
+                disabled={isSigningOut}
+                aria-label="Close sign out dialog"
+              >
+                <X className="size-5" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+          <div className="space-y-5 p-5">
+            <p id="sign-out-description" className="text-sm text-muted-foreground">
+              Are you sure you want to sign out of your account?
+            </p>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowSignOutDialog(false)}
+                disabled={isSigningOut}
+              >
+                No
+              </Button>
+              <Button type="button" onClick={confirmSignOut} disabled={isSigningOut}>
+                <LogOut className="size-4" aria-hidden="true" />
+                {isSigningOut ? "Signing out…" : "Sign out"}
+              </Button>
+            </div>
+          </div>
+        </section>
+      </div>
+    ) : null}
+    </>
   )
 }
 
