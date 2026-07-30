@@ -247,7 +247,7 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
         </div>
 
         {/* Meeting info bar */}
-        <div className="flex flex-wrap items-center justify-between gap-2 bg-[#004165] px-6 py-3 text-white dark:bg-gradient-to-r dark:from-[#3B0104] dark:to-[#781327]">
+        <div className="agenda-theme-bar flex flex-wrap items-center justify-between gap-2 bg-[#004165] px-6 py-3 text-white dark:bg-gradient-to-r dark:from-[#3B0104] dark:to-[#781327]">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
             <span className="font-semibold" style={displayFont}>
               {settings.meetingTitle || "Meeting Agenda"}
@@ -321,7 +321,7 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
                 </tbody>
               </table>
             </div>
-            <div className="flex items-center justify-between border-t border-border bg-secondary/50 px-4 py-3 text-xs text-muted-foreground">
+            <div className="agenda-summary flex items-center justify-between border-t border-border bg-secondary/50 px-4 py-3 text-xs text-muted-foreground">
               <span>{rows.length} sessions</span>
               <span>Total duration ≈ {formatDuration(totalDuration)}</span>
             </div>
@@ -337,7 +337,7 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
             <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-primary" style={displayFont}>
               Executive Committee
             </h2>
-            <dl className="flex flex-col gap-1.5 text-sm">
+            <dl className="agenda-officer-list flex flex-col gap-1.5 text-sm">
               {OFFICER_FIELDS.map((f) => {
                 const value = clubInfo[f.key]
                 if (!value) return null

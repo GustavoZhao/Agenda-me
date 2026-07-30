@@ -1,9 +1,9 @@
 import type { AgendaSettings } from "@/lib/agenda"
 
 export const MOBILE_AGENDA_EXPORT = {
-  cssWidth: 390,
-  scale: 3,
-  pixelWidth: 1170,
+  cssWidth: 400,
+  scale: 3.2,
+  pixelWidth: 1280,
 } as const
 
 export function hasExpectedMobileExportSize(canvas: Pick<HTMLCanvasElement, "width" | "height">) {

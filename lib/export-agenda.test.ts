@@ -22,13 +22,13 @@ describe("makeAgendaPngFilename", () => {
   })
 
   it("exports a high-density image designed at a readable mobile width", () => {
-    expect(MOBILE_AGENDA_EXPORT.cssWidth).toBe(390)
-    expect(MOBILE_AGENDA_EXPORT.scale).toBe(3)
+    expect(MOBILE_AGENDA_EXPORT.cssWidth).toBe(400)
+    expect(MOBILE_AGENDA_EXPORT.scale).toBe(3.2)
     expect(MOBILE_AGENDA_EXPORT.cssWidth * MOBILE_AGENDA_EXPORT.scale).toBe(
       MOBILE_AGENDA_EXPORT.pixelWidth
     )
-    expect(hasExpectedMobileExportSize({ width: 1170, height: 4800 })).toBe(true)
-    expect(hasExpectedMobileExportSize({ width: 1080, height: 4800 })).toBe(false)
-    expect(hasExpectedMobileExportSize({ width: 1170, height: 0 })).toBe(false)
+    expect(hasExpectedMobileExportSize({ width: 1280, height: 4800 })).toBe(true)
+    expect(hasExpectedMobileExportSize({ width: 1170, height: 4800 })).toBe(false)
+    expect(hasExpectedMobileExportSize({ width: 1280, height: 0 })).toBe(false)
   })
 })
