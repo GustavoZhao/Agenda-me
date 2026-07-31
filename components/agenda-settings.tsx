@@ -131,7 +131,7 @@ export function AgendaSettingsPanel({ settings, onChange, showClubInfo = true }:
 
     if (
       updatedSession &&
-      partial.presenter !== undefined &&
+      (nextPartial.presenter !== undefined || nextPartial.title !== undefined) &&
       (updatedSession.activity === "Introduction of the Grammarian" ||
         updatedSession.activity === "Introduction of the Timer" ||
         updatedSession.activity === INTRODUCTION_OF_HARKMASTER_ACTIVITY)
@@ -241,9 +241,21 @@ export function AgendaSettingsPanel({ settings, onChange, showClubInfo = true }:
       return
     }
 
+    const linkedSourceActivity = nextActivity === "Grammarian's Report"
+      ? "Introduction of the Grammarian"
+      : nextActivity === "Timer's Report"
+        ? "Introduction of the Timer"
+        : nextActivity === HARKMASTER_QUIZ_ACTIVITY
+          ? INTRODUCTION_OF_HARKMASTER_ACTIVITY
+          : null
+    const linkedSource = linkedSourceActivity
+      ? settings.sessions.find((session) => session.activity === linkedSourceActivity)
+      : null
+
     updateSession(sessionId, {
       activity: nextActivity,
-      presenter: getDefaultPresenter(nextActivity, current.presenter),
+      presenter: linkedSource?.presenter ?? getDefaultPresenter(nextActivity, current.presenter),
+      ...(linkedSource ? { title: linkedSource.title ?? "" } : {}),
     })
   }
 
@@ -962,7 +974,11 @@ function SessionFields({
               ))}
             </select>
           ) : null}
-          <TitleField value={session.title ?? ""} onChange={(title) => onUpdate({ title })} />
+          <TitleField
+            value={session.title ?? ""}
+            onChange={(title) => onUpdate({ title })}
+            disabled={isLinkedReport}
+          />
         </div>
       )}
 
@@ -971,7 +987,15 @@ function SessionFields({
   )
 }
 
-function TitleField({ value, onChange }: { value: string; onChange: (next: string) => void }) {
+function TitleField({
+  value,
+  onChange,
+  disabled = false,
+}: {
+  value: string
+  onChange: (next: string) => void
+  disabled?: boolean
+}) {
   const trimmed = value.trim()
   const matchedPreset = TITLE_PRESET_OPTIONS.find((option) => option.value.toLowerCase() === trimmed.toLowerCase()) ?? null
   const isCustomTitle = !!trimmed && !matchedPreset
@@ -989,6 +1013,8 @@ function TitleField({ value, onChange }: { value: string; onChange: (next: strin
       <select
         className={`${inputClass} min-w-0`}
         value={selectValue}
+        disabled={disabled}
+        title={disabled ? "Automatically synchronized with the corresponding introduction role." : undefined}
         onChange={(e) => {
           const next = e.target.value
           if (next === "") {
@@ -1018,6 +1044,7 @@ function TitleField({ value, onChange }: { value: string; onChange: (next: strin
           className={`${inputClass} min-w-0`}
           placeholder="Custom title"
           value={value}
+          disabled={disabled}
           onChange={(e) => onChange(e.target.value)}
         />
       )}

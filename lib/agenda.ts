@@ -821,6 +821,28 @@ export function decodeAgendaSettings(encoded: string): AgendaSettings | null {
 // Normalize persisted settings (legacy activity names, missing optional fields)
 type LegacyStoredSession = Partial<Session> & { duration?: number }
 
+const LINKED_ROLE_ACTIVITY_PAIRS = [
+  ["Introduction of the Grammarian", "Grammarian's Report"],
+  ["Introduction of the Timer", "Timer's Report"],
+  [INTRODUCTION_OF_HARKMASTER_ACTIVITY, HARKMASTER_QUIZ_ACTIVITY],
+] as const
+
+function synchronizeLinkedRoleSessions(sessions: Session[]): Session[] {
+  const sources = new Map<string, Session | undefined>(
+    LINKED_ROLE_ACTIVITY_PAIRS.map(([sourceActivity, targetActivity]) => [
+      targetActivity,
+      sessions.find((session) => session.activity === sourceActivity),
+    ])
+  )
+
+  return sessions.map((session) => {
+    const source = sources.get(session.activity)
+    return source
+      ? { ...session, presenter: source.presenter, title: source.title ?? "" }
+      : session
+  })
+}
+
 export function normalizeSettings(raw: Partial<AgendaSettings>): AgendaSettings {
   const meetingSaa = raw.meetingSaa?.trim() || DEFAULT_SETTINGS.meetingSaa
   const sessions = (raw.sessions ?? DEFAULT_SETTINGS.sessions).map((rawSession) => {
@@ -857,7 +879,7 @@ export function normalizeSettings(raw: Partial<AgendaSettings>): AgendaSettings 
     ...DEFAULT_SETTINGS,
     ...raw,
     meetingTimeZone: raw.meetingTimeZone || DEFAULT_SETTINGS.meetingTimeZone,
-    sessions,
+    sessions: synchronizeLinkedRoleSessions(sessions),
     clubInfo: { ...DEFAULT_CLUB_INFO, ...(raw.clubInfo ?? {}) },
   }
 }

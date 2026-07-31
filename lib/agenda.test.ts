@@ -198,6 +198,28 @@ describe("meeting templates", () => {
     ).toBe("Jordan Chen")
   })
 
+  it("synchronizes linked report names and titles when loading a saved agenda", () => {
+    const sessions = createAgendaTemplateSessions("standard").map((session) => {
+      if (session.activity === "Introduction of the Timer") {
+        return { ...session, presenter: "Taylor Timer", title: "PM3" }
+      }
+      if (session.activity === INTRODUCTION_OF_HARKMASTER_ACTIVITY) {
+        return { ...session, presenter: "Harper Harkmaster", title: "DL2" }
+      }
+      if (session.activity === "Timer's Report" || session.activity === HARKMASTER_QUIZ_ACTIVITY) {
+        return { ...session, presenter: "Stale role", title: "" }
+      }
+      return session
+    })
+
+    const normalized = normalizeSettings({ sessions })
+    const timerReport = normalized.sessions.find((session) => session.activity === "Timer's Report")
+    const harkmasterQuiz = normalized.sessions.find((session) => session.activity === HARKMASTER_QUIZ_ACTIVITY)
+
+    expect(timerReport).toMatchObject({ presenter: "Taylor Timer", title: "PM3" })
+    expect(harkmasterQuiz).toMatchObject({ presenter: "Harper Harkmaster", title: "DL2" })
+  })
+
   it("describes the speaker linked to an individual evaluation", () => {
     const sessions = createAgendaTemplateSessions("standard")
     const speech = sessions.find((session) => session.activity === "Prepared Speech")!
