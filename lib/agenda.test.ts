@@ -2,15 +2,23 @@ import { describe, expect, it } from "vitest"
 
 import {
   applyAgendaTemplateImport,
+  BALLOT_COLLECTION_ACTIVITY,
+  BOOK_CLUB_ACTIVITY,
   BREAK_ACTIVITY,
   computeSchedule,
   createAgendaTemplateSessions,
   getIndividualEvaluationLabel,
   getPresetTitleBadge,
+  HARKMASTER_QUIZ_ACTIVITY,
+  INTRODUCTION_OF_HARKMASTER_ACTIVITY,
+  JOKE_MASTER_ACTIVITY,
+  ACTIVITY_OPTIONS,
+  CLUB_MISSION,
   DEFAULT_SETTINGS,
   getSectionRoleLabel,
   getSectionRowLabel,
   normalizeSettings,
+  resetMeetingPreservingClub,
   setMeetingSaa,
 } from "./agenda"
 
@@ -23,6 +31,11 @@ describe("anonymous agenda defaults", () => {
     expect(DEFAULT_SETTINGS.clubInfo.vpmWhatsappQr).toBe("")
     expect(DEFAULT_SETTINGS.meetingTimeZone).toBe("Asia/Shanghai")
     expect(JSON.stringify(DEFAULT_SETTINGS)).not.toContain("BRICS")
+  })
+
+  it("uses the universal Toastmasters Club Mission", () => {
+    expect(CLUB_MISSION).toContain("supportive and positive learning experience")
+    expect(CLUB_MISSION).toContain("self-confidence and personal growth")
   })
 
   it("keeps the meeting SAA separate from the club officer SAA", () => {
@@ -53,12 +66,66 @@ describe("anonymous agenda defaults", () => {
     expect(getSectionRoleLabel(breakRow!, "break")).toBe("Meeting SAA")
   })
 
-  it("uses an export-safe typographic badge for DTM credentials", () => {
-    expect(getPresetTitleBadge("DTM")).toEqual({ kind: "code", code: "DTM" })
+  it("uses the DTM image badge in the regular preview while retaining its text code", () => {
+    expect(getPresetTitleBadge("DTM")).toEqual({
+      kind: "image",
+      src: "/dtm-badge.svg",
+      alt: "DTM badge",
+      code: "DTM",
+    })
+  })
+
+  it("resets meeting details to the Standard template while preserving the club", () => {
+    const current = normalizeSettings({
+      ...DEFAULT_SETTINGS,
+      meetingTitle: "Annual Celebration",
+      meetingDate: "2026-08-01",
+      startTime: "20:30",
+      meetingTimeZone: "Europe/London",
+      meetingSaa: "Alex Smith",
+      wordOfTheDay: "Resilience",
+      clubInfo: {
+        ...DEFAULT_SETTINGS.clubInfo,
+        clubName: "Example Toastmasters Club",
+        clubNumber: "12345678",
+        president: "Jane Doe",
+      },
+    })
+
+    const reset = resetMeetingPreservingClub(current)
+
+    expect(reset.clubInfo).toEqual(current.clubInfo)
+    expect(reset.clubInfo).not.toBe(current.clubInfo)
+    expect(reset.meetingTitle).toBe("Regular Meeting")
+    expect(reset.meetingDate).toBe("")
+    expect(reset.startTime).toBe("19:00")
+    expect(reset.meetingTimeZone).toBe("Europe/London")
+    expect(reset.meetingSaa).toBe("Meeting SAA")
+    expect(reset.wordOfTheDay).toBe("Word")
+    expect(reset.sessions.filter((session) => session.activity === "Prepared Speech")).toHaveLength(3)
+    expect(reset.sessions.some((session) => session.activity === "Table Topics")).toBe(true)
+    expect(reset.sessions.some((session) => session.activity === BOOK_CLUB_ACTIVITY)).toBe(false)
   })
 })
 
 describe("meeting templates", () => {
+  it("offers Joke Master as an optional activity but omits it from every default template", () => {
+    expect(ACTIVITY_OPTIONS).toContain(JOKE_MASTER_ACTIVITY)
+    expect(ACTIVITY_OPTIONS).not.toContain("Warm-up")
+
+    for (const template of ["standard", "book-club", "speechathon"] as const) {
+      expect(createAgendaTemplateSessions(template).some((session) => session.activity === JOKE_MASTER_ACTIVITY)).toBe(false)
+    }
+  })
+
+  it("uses the global-friendly Toastmaster of the Meeting title", () => {
+    const introduction = createAgendaTemplateSessions("standard").find(
+      (session) => session.activity === "Introduction of the Meeting"
+    )
+
+    expect(introduction?.presenter).toBe("Toastmaster of the Meeting (ToM)")
+  })
+
   it("creates a standard meeting with three linked speech evaluations", () => {
     const sessions = createAgendaTemplateSessions("standard")
     const speeches = sessions.filter((session) => session.activity === "Prepared Speech")
@@ -79,6 +146,56 @@ describe("meeting templates", () => {
     expect(bookClub.some((session) => session.activity === "Book Club Discussion")).toBe(true)
     expect(speechathon.filter((session) => session.activity === "Prepared Speech")).toHaveLength(5)
     expect(speechathon.filter((session) => session.activity === "Individual Evaluation")).toHaveLength(5)
+  })
+
+  it.each(["standard", "book-club", "speechathon"] as const)(
+    "adds the Harkmaster and ballot sequence to the %s template",
+    (template) => {
+      const sessions = createAgendaTemplateSessions(template)
+      const activities = sessions.map((session) => session.activity)
+
+      expect(activities.indexOf(INTRODUCTION_OF_HARKMASTER_ACTIVITY)).toBe(
+        activities.indexOf("Introduction of the Grammarian") + 1
+      )
+      expect(activities.indexOf(HARKMASTER_QUIZ_ACTIVITY)).toBe(
+        activities.indexOf("Grammarian's Report") + 1
+      )
+      expect(activities.indexOf(BALLOT_COLLECTION_ACTIVITY)).toBe(
+        activities.indexOf("Timer's Report") + 1
+      )
+      const ballotCollection = sessions.find((session) => session.activity === BALLOT_COLLECTION_ACTIVITY)
+      expect(ballotCollection?.durationMax).toBe(2)
+      expect(ballotCollection?.presenter).toBe("Meeting SAA")
+    }
+  )
+
+  it("synchronizes ballot collection with the meeting SAA", () => {
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      sessions: createAgendaTemplateSessions("standard", "Alex Smith"),
+      meetingSaa: "Alex Smith",
+    }
+
+    const updated = setMeetingSaa(settings, "Taylor Lee")
+    const ballotCollection = updated.sessions.find(
+      (session) => session.activity === BALLOT_COLLECTION_ACTIVITY
+    )
+
+    expect(ballotCollection?.presenter).toBe("Taylor Lee")
+  })
+
+  it("repairs a previously saved ballot counter role from the meeting SAA", () => {
+    const sessions = createAgendaTemplateSessions("standard").map((session) =>
+      session.activity === BALLOT_COLLECTION_ACTIVITY
+        ? { ...session, presenter: "Ballot Counter" }
+        : session
+    )
+
+    const normalized = normalizeSettings({ meetingSaa: "Jordan Chen", sessions })
+
+    expect(
+      normalized.sessions.find((session) => session.activity === BALLOT_COLLECTION_ACTIVITY)?.presenter
+    ).toBe("Jordan Chen")
   })
 
   it("describes the speaker linked to an individual evaluation", () => {

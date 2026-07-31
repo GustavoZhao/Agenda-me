@@ -61,7 +61,7 @@ const alibabaPuHuiTi = localFont({
 })
 
 export const metadata: Metadata = {
-  title: 'Speechaholic',
+  title: 'Speechaholic Agenda Builder',
   description:
     'Plan meeting roles, sessions, speeches, and timing, then create a polished agenda for your Toastmasters meeting.',
   generator: 'v0.app',

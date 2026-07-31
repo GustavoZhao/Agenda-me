@@ -52,6 +52,8 @@ export const SESSION_SECTION_LABELS: Record<string, string> = {
 }
 
 const LEGACY_BREAK_NAME = "Tea Break and Networking"
+const LEGACY_WARM_UP_NAME = "Warm-up"
+export const JOKE_MASTER_ACTIVITY = "Joke Master"
 export const BREAK_ACTIVITY = "Break and Networking"
 export const BOOK_CLUB_ACTIVITY = "BRICS+ Book Club"
 export const BOOK_CLUB_DISCUSSION_ACTIVITY = "Book Club Discussion"
@@ -60,6 +62,9 @@ export const BOOK_CLUB_MINI_FEEDBACK_ACTIVITY = "Book Club Mini Feedback"
 export const BOOK_CLUB_GRAMMARIAN_REPORT_ACTIVITY = "Grammarian's Report on Table Topics"
 export const BOOK_CLUB_CLOSING_REFLECTION_ACTIVITY = "Book Club Closing Reflection"
 export const TABLE_TOPICS_EVALUATION_ACTIVITY = "Table Topics Evaluation"
+export const INTRODUCTION_OF_HARKMASTER_ACTIVITY = "Introduction of the Harkmaster"
+export const HARKMASTER_QUIZ_ACTIVITY = "Quiz of the Harkmaster"
+export const BALLOT_COLLECTION_ACTIVITY = "Ballot Collection"
 
 export function getSessionSection(activity: string): string | null {
   if (activity === "Prepared Speech") return "prepared-speeches"
@@ -80,7 +85,9 @@ export function getSessionSection(activity: string): string | null {
     activity === TABLE_TOPICS_EVALUATION_ACTIVITY ||
     activity === "General Evaluation" ||
     activity === "Grammarian's Report" ||
-    activity === "Timer's Report"
+    activity === HARKMASTER_QUIZ_ACTIVITY ||
+    activity === "Timer's Report" ||
+    activity === BALLOT_COLLECTION_ACTIVITY
   ) {
     return "evaluations"
   }
@@ -164,7 +171,7 @@ export type AgendaSettings = {
 
 // Fixed club identity — this template is used by a single club.
 export const CLUB_NAME = "BRICS+ Online Advanced Toastmasters Club"
-export const CLUB_MISSION = "Building relations, inspiring communication and sharing growth"
+export const CLUB_MISSION = "We provide a supportive and positive learning experience in which members are empowered to develop communication and leadership skills, resulting in greater self-confidence and personal growth."
 export const CLUB_LOGO_SRC = "/toastmasters-logo.svg"
 export const CLUB_META = "Area K4, Division K, District 85, Club No. 28678559"
 
@@ -237,11 +244,12 @@ export const DEFAULT_CLUB_INFO: ClubInfo = {
 
 // Preset activities in the dropdown menu
 export const ACTIVITY_OPTIONS = [
-  "Warm-up",
+  JOKE_MASTER_ACTIVITY,
   "Opening Remarks",
   "Introduction of the Meeting",
   "Introduction of the Timer",
   "Introduction of the Grammarian",
+  INTRODUCTION_OF_HARKMASTER_ACTIVITY,
   "Table Topics",
   BOOK_CLUB_ACTIVITY,
   BOOK_CLUB_DISCUSSION_ACTIVITY,
@@ -255,16 +263,20 @@ export const ACTIVITY_OPTIONS = [
   TABLE_TOPICS_EVALUATION_ACTIVITY,
   "General Evaluation",
   "Grammarian's Report",
+  HARKMASTER_QUIZ_ACTIVITY,
   "Timer's Report",
+  BALLOT_COLLECTION_ACTIVITY,
   "Closing and Awards",
 ] as const
 
 // Preferred running order used by the "Auto-sort" button
 export const CANONICAL_ORDER = [
+  JOKE_MASTER_ACTIVITY,
   "Opening Remarks",
   "Introduction of the Meeting",
   "Introduction of the Timer",
   "Introduction of the Grammarian",
+  INTRODUCTION_OF_HARKMASTER_ACTIVITY,
   "Prepared Speech",
   BREAK_ACTIVITY,
   BOOK_CLUB_DISCUSSION_ACTIVITY,
@@ -275,9 +287,11 @@ export const CANONICAL_ORDER = [
   "Table Topics",
   "Individual Evaluation",
   TABLE_TOPICS_EVALUATION_ACTIVITY,
-  "Grammarian's Report",
-  "Timer's Report",
   "General Evaluation",
+  "Grammarian's Report",
+  HARKMASTER_QUIZ_ACTIVITY,
+  "Timer's Report",
+  BALLOT_COLLECTION_ACTIVITY,
   "Closing and Awards",
 ]
 
@@ -357,7 +371,8 @@ export function setMeetingSaa(settings: AgendaSettings, meetingSaa: string): Age
     ...settings,
     meetingSaa,
     sessions: settings.sessions.map((session) => {
-      if (session.activity !== BREAK_ACTIVITY) return session
+      if (session.activity !== BREAK_ACTIVITY && session.activity !== BALLOT_COLLECTION_ACTIVITY) return session
+      if (session.activity === BALLOT_COLLECTION_ACTIVITY) return { ...session, presenter: meetingSaa }
       const presenter = session.presenter?.trim()
       if (presenter && presenter !== previousMeetingSaa && presenter !== "Meeting SAA") return session
       return { ...session, presenter: meetingSaa }
@@ -369,11 +384,11 @@ export type AgendaTemplateId = "standard" | "book-club" | "speechathon"
 
 function openingSessions(): Session[] {
   return [
-    makeSession({ activity: "Warm-up", presenter: "", durationMax: 5 }),
     makeSession({ activity: "Opening Remarks", presenter: "President", durationMax: 3 }),
-    makeSession({ activity: "Introduction of the Meeting", presenter: "Toastmaster", durationMax: 5 }),
+    makeSession({ activity: "Introduction of the Meeting", presenter: "Toastmaster of the Meeting (ToM)", durationMax: 5 }),
     makeSession({ activity: "Introduction of the Timer", presenter: "Timer", durationMax: 2 }),
     makeSession({ activity: "Introduction of the Grammarian", presenter: "Grammarian", durationMax: 3 }),
+    makeSession({ activity: INTRODUCTION_OF_HARKMASTER_ACTIVITY, presenter: "Harkmaster", durationMax: 2 }),
   ]
 }
 
@@ -410,11 +425,13 @@ function breakSession(meetingSaa: string): Session {
   })
 }
 
-function evaluationReports(): Session[] {
+function evaluationReports(meetingSaa: string): Session[] {
   return [
     makeSession({ activity: "General Evaluation", presenter: "General Evaluator", durationMin: 5, durationMax: 7 }),
     makeSession({ activity: "Grammarian's Report", presenter: "Grammarian", durationMax: 3 }),
+    makeSession({ activity: HARKMASTER_QUIZ_ACTIVITY, presenter: "Harkmaster", durationMax: 3 }),
     makeSession({ activity: "Timer's Report", presenter: "Timer", durationMax: 3 }),
+    makeSession({ activity: BALLOT_COLLECTION_ACTIVITY, presenter: meetingSaa || "Meeting SAA", durationMax: 2 }),
     makeSession({ activity: "Closing and Awards", presenter: "President", durationMax: 5, buffer: 0 }),
   ]
 }
@@ -442,7 +459,7 @@ export function createAgendaTemplateSessions(
       ...speeches,
       breakSession(meetingSaa),
       ...individualEvaluations(speeches),
-      ...evaluationReports(),
+      ...evaluationReports(meetingSaa),
     ]
   }
 
@@ -468,7 +485,7 @@ export function createAgendaTemplateSessions(
     breakSession(meetingSaa),
     ...individualEvaluations(speeches),
     ...tableTopicsEvaluation,
-    ...evaluationReports(),
+    ...evaluationReports(meetingSaa),
   ]
 }
 
@@ -484,10 +501,11 @@ export const DEFAULT_SETTINGS: AgendaSettings = {
   wordPartOfSpeech: "Part of Speech",
   wordOfTheDayMeaning: "Definition: Add a concise definition and an example sentence.",
   sessions: [
-    makeSession({ activity: "Warm-up", presenter: "", durationMin: 5, durationMax: 5 }),
     makeSession({ activity: "Opening Remarks", presenter: "President", durationMin: 3, durationMax: 3 }),
-    makeSession({ activity: "Introduction of the Meeting", presenter: "Toastmaster", durationMin: 5, durationMax: 5 }),
+    makeSession({ activity: "Introduction of the Meeting", presenter: "Toastmaster of the Meeting (ToM)", durationMin: 5, durationMax: 5 }),
+    makeSession({ activity: "Introduction of the Timer", presenter: "Timer", durationMin: 2, durationMax: 2 }),
     makeSession({ activity: "Introduction of the Grammarian", presenter: "Grammarian", durationMin: 3, durationMax: 3 }),
+    makeSession({ activity: INTRODUCTION_OF_HARKMASTER_ACTIVITY, presenter: "Harkmaster", durationMin: 2, durationMax: 2 }),
     makeSession({
       activity: BOOK_CLUB_DISCUSSION_ACTIVITY,
       presenter: "Book Club Master",
@@ -563,7 +581,9 @@ export const DEFAULT_SETTINGS: AgendaSettings = {
     makeSession({ activity: TABLE_TOPICS_EVALUATION_ACTIVITY, presenter: "Table Topics Evaluator", durationMin: 3, durationMax: 4 }),
     makeSession({ activity: "General Evaluation", presenter: "General Evaluator", durationMin: 5, durationMax: 7 }),
     makeSession({ activity: "Grammarian's Report", presenter: "Grammarian", durationMin: 3, durationMax: 3 }),
+    makeSession({ activity: HARKMASTER_QUIZ_ACTIVITY, presenter: "Harkmaster", durationMin: 3, durationMax: 3 }),
     makeSession({ activity: "Timer's Report", presenter: "Timer", durationMin: 3, durationMax: 3 }),
+    makeSession({ activity: BALLOT_COLLECTION_ACTIVITY, presenter: "Meeting SAA", durationMin: 2, durationMax: 2 }),
     makeSession({
       activity: "Closing and Awards",
       presenter: "President",
@@ -573,6 +593,19 @@ export const DEFAULT_SETTINGS: AgendaSettings = {
     }),
   ],
   clubInfo: DEFAULT_CLUB_INFO,
+}
+
+export function resetMeetingPreservingClub(settings: AgendaSettings): AgendaSettings {
+  const current = normalizeSettings(settings)
+
+  return {
+    ...DEFAULT_SETTINGS,
+    // The timezone is configured with the club profile and should remain the
+    // default when starting a fresh meeting for the same club.
+    meetingTimeZone: current.meetingTimeZone,
+    sessions: createAgendaTemplateSessions("standard", DEFAULT_SETTINGS.meetingSaa),
+    clubInfo: { ...current.clubInfo },
+  }
 }
 
 export type ComputedRow = Session & {
@@ -789,6 +822,7 @@ export function decodeAgendaSettings(encoded: string): AgendaSettings | null {
 type LegacyStoredSession = Partial<Session> & { duration?: number }
 
 export function normalizeSettings(raw: Partial<AgendaSettings>): AgendaSettings {
+  const meetingSaa = raw.meetingSaa?.trim() || DEFAULT_SETTINGS.meetingSaa
   const sessions = (raw.sessions ?? DEFAULT_SETTINGS.sessions).map((rawSession) => {
     const s = rawSession as LegacyStoredSession
     const legacyDuration = s.duration
@@ -798,8 +832,13 @@ export function normalizeSettings(raw: Partial<AgendaSettings>): AgendaSettings 
 
     return {
       id: s.id ?? makeId(),
-      activity: s.activity === LEGACY_BREAK_NAME ? BREAK_ACTIVITY : (s.activity ?? ""),
-      presenter: s.presenter ?? "",
+      activity:
+        s.activity === LEGACY_BREAK_NAME
+          ? BREAK_ACTIVITY
+          : s.activity === LEGACY_WARM_UP_NAME
+            ? JOKE_MASTER_ACTIVITY
+            : (s.activity ?? ""),
+      presenter: s.activity === BALLOT_COLLECTION_ACTIVITY ? meetingSaa : (s.presenter ?? ""),
       title: s.title ?? "",
       durationMin,
       durationMax,
@@ -940,6 +979,8 @@ function parseAgendaTemplate(text: string): ParsedAgendaTemplate {
   }
 
   parsed.toastmaster = firstMatchingRoleValue(lines, [
+    /toastmaster\s+of\s+the\s+meeting\s*(?:\(tom\))?\s*:\s*(.+)$/i,
+    /tom\s*:\s*(.+)$/i,
     /toastmaster\s*:\s*(.+)$/i,
     /master of ceremonies\s*:\s*(.+)$/i,
     /\btm\b\s*:\s*(.+)$/i,
@@ -1079,7 +1120,7 @@ export function getPresetTitleBadge(title: string):
   // The detailed DTM SVG relies on a large set of internal gradients that
   // html2canvas cannot consistently preserve. Use a compact typographic badge
   // so it remains legible in both the live preview and exported PNG.
-  if (normalized === "DTM") return { kind: "code", code: "DTM" }
+  if (normalized === "DTM") return { kind: "image", src: "/dtm-badge.svg", alt: "DTM badge", code: "DTM" }
 
   const abbrLevelMatch = normalized.match(/^([A-Z]{2})([1-5])$/)
   if (abbrLevelMatch) {
@@ -1269,7 +1310,7 @@ export function applyAgendaTemplateImport(settings: AgendaSettings, text: string
   if (parsed.toastmaster) {
     next.sessions = applyValuesToActivity(next.sessions, "Introduction of the Meeting", [parsed.toastmaster])
     matchedFields.push("toastmaster")
-    addPreview("Toastmaster", parsed.toastmaster)
+    addPreview("Toastmaster of the Meeting (ToM)", parsed.toastmaster)
   }
 
   if (parsed.tableTopicsMaster) {

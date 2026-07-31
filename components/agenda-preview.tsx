@@ -174,12 +174,12 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
         {/* Header */}
         <header className="border-b-4 border-[#F2DF74] bg-gradient-to-r from-[#3B0104] to-[#781327] px-6 py-6 text-white dark:from-[#004165] dark:to-[#006094]">
           <div className="flex items-center gap-4">
-            <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden p-1.5">
+            <div className="agenda-club-logo flex size-16 shrink-0 items-center justify-center overflow-hidden p-1.5">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={CLUB_LOGO_SRC || "/placeholder.svg"} alt="Club logo" className="size-full object-contain" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-balance text-xl font-bold leading-tight" style={displayFont}>
+              <h1 className="agenda-club-name text-balance text-xl font-bold leading-tight" style={displayFont}>
                 {clubName}
               </h1>
               <p className="mt-1 text-pretty text-sm italic text-white/80">{clubSlogan}</p>
@@ -237,14 +237,15 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
               </div>
             </div>
           </div>
-          {(settings.wordOfTheDay?.trim() ||
-            settings.wordPartOfSpeech?.trim() ||
-            settings.wordOfTheDayMeaning?.trim()) ? (
-            <div className="agenda-export-word hidden">
-              <WordOfTheDayPanel settings={settings} />
-            </div>
-          ) : null}
         </div>
+
+        {(settings.wordOfTheDay?.trim() ||
+          settings.wordPartOfSpeech?.trim() ||
+          settings.wordOfTheDayMeaning?.trim()) ? (
+          <div className="agenda-export-word hidden">
+            <WordOfTheDayPanel settings={settings} />
+          </div>
+        ) : null}
 
         {/* Meeting info bar */}
         <div className="agenda-theme-bar flex flex-wrap items-center justify-between gap-2 bg-[#004165] px-6 py-3 text-white dark:bg-gradient-to-r dark:from-[#3B0104] dark:to-[#781327]">
@@ -370,6 +371,7 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
                 ) : null}
               </div>
             )}
+            <ClubMission />
           </aside>
         </div>
 
@@ -377,7 +379,18 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
           id="agenda-footer"
           className="h-auto min-h-0 flex-none border-t border-border bg-background/70 px-6 py-2 text-center text-[11px] leading-4 text-muted-foreground"
         >
-          Designed with ♥ by BRICS+ Advanced Online Toastmasters.
+          <p>Designed with ♥ by BRICS+ Advanced Online Toastmasters.</p>
+          <p className="agenda-platform-note mt-0.5 text-[10px] leading-3">
+            Create your own Toastmasters meeting agenda at{" "}
+            <a
+              href="https://speechaholic.online"
+              target="_blank"
+              rel="noreferrer"
+              className="font-semibold text-primary underline decoration-primary/40 underline-offset-2"
+            >
+              speechaholic.online
+            </a>
+          </p>
         </footer>
       </article>
     </div>
@@ -423,12 +436,23 @@ function AgendaRow({
   const roleLabel = getSectionRoleLabel(row, sectionKey)
   const titleLabel = row.title?.trim() ?? ""
   const presetTitleBadge = getPresetTitleBadge(titleLabel)
+  const exportTitleLabel = presetTitleBadge?.code ?? titleLabel
   const isBreak = row.activity === BREAK_ACTIVITY
 
   return (
     <tr className="agenda-session-row border-b border-border/60 last:border-b-0">
       <td className="agenda-time-cell whitespace-nowrap px-4 py-3 font-mono text-xs text-muted-foreground">
-        {row.start} – {row.end}
+        <span className="agenda-time-value">{row.start} – {row.end}</span>
+        <div className="agenda-export-session-stack hidden">
+          <span className="agenda-export-session-time">{row.start} – {row.end}</span>
+          <span className="agenda-export-session-title">{sessionLabel}</span>
+          <span className="agenda-export-session-role">
+            <span>{roleLabel}</span>
+            {exportTitleLabel ? (
+              <span className="agenda-export-title-label">{exportTitleLabel}</span>
+            ) : null}
+          </span>
+        </div>
       </td>
       <td className="agenda-session-cell px-4 py-3 font-medium text-card-foreground">{sessionLabel}</td>
       <td className="agenda-role-cell px-4 py-3 text-muted-foreground">{roleLabel}</td>
@@ -530,5 +554,14 @@ function QrBadge({ src, label }: { src: string; label: string }) {
       </div>
       <figcaption className="text-xs font-medium text-muted-foreground">{label}</figcaption>
     </figure>
+  )
+}
+
+function ClubMission() {
+  return (
+    <section className="agenda-club-mission mt-6 border-t border-border pt-5">
+      <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-primary">Club Mission</h2>
+      <p className="text-sm leading-relaxed text-card-foreground">{CLUB_MISSION}</p>
+    </section>
   )
 }

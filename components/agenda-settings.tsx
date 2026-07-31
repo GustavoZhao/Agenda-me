@@ -4,6 +4,7 @@ import type React from "react"
 import { useEffect, useState } from "react"
 import {
   ACTIVITY_OPTIONS,
+  BALLOT_COLLECTION_ACTIVITY,
   BOOK_CLUB_ACTIVITY,
   BOOK_CLUB_CLOSING_REFLECTION_ACTIVITY,
   BOOK_CLUB_DISCUSSION_ACTIVITY,
@@ -14,6 +15,9 @@ import {
   type AgendaTemplateId,
   type ClubInfo,
   findCredentialForMemberName,
+  HARKMASTER_QUIZ_ACTIVITY,
+  INTRODUCTION_OF_HARKMASTER_ACTIVITY,
+  JOKE_MASTER_ACTIVITY,
   createAgendaTemplateSessions,
   groupSessionsForDisplay,
   MEMBERSHIP_CSV_PATH,
@@ -129,11 +133,13 @@ export function AgendaSettingsPanel({ settings, onChange, showClubInfo = true }:
       updatedSession &&
       partial.presenter !== undefined &&
       (updatedSession.activity === "Introduction of the Grammarian" ||
-        updatedSession.activity === "Introduction of the Timer")
+        updatedSession.activity === "Introduction of the Timer" ||
+        updatedSession.activity === INTRODUCTION_OF_HARKMASTER_ACTIVITY)
     ) {
-      const reportActivity =
-        updatedSession.activity === "Introduction of the Grammarian"
-          ? "Grammarian's Report"
+      const reportActivity = updatedSession.activity === "Introduction of the Grammarian"
+        ? "Grammarian's Report"
+        : updatedSession.activity === INTRODUCTION_OF_HARKMASTER_ACTIVITY
+          ? HARKMASTER_QUIZ_ACTIVITY
           : "Timer's Report"
       update({
         sessions: updatedSessions.map((session) =>
@@ -149,10 +155,14 @@ export function AgendaSettingsPanel({ settings, onChange, showClubInfo = true }:
   }
 
   function getDefaultPresenter(activity: string, currentPresenter: string): string {
+    if (activity === JOKE_MASTER_ACTIVITY) return currentPresenter || "Joke Master"
     if (activity === "Introduction of the Grammarian") return currentPresenter || "Grammarian"
     if (activity === "Grammarian's Report") return currentPresenter || "Grammarian"
     if (activity === "Introduction of the Timer") return currentPresenter || "Timer"
     if (activity === "Timer's Report") return currentPresenter || "Timer"
+    if (activity === INTRODUCTION_OF_HARKMASTER_ACTIVITY) return currentPresenter || "Harkmaster"
+    if (activity === HARKMASTER_QUIZ_ACTIVITY) return currentPresenter || "Harkmaster"
+    if (activity === BALLOT_COLLECTION_ACTIVITY) return settings.meetingSaa?.trim() || "Meeting SAA"
     if (activity === "Table Topics") return currentPresenter || "Table Topics Master"
     if (activity === BOOK_CLUB_DISCUSSION_ACTIVITY || activity === BOOK_CLUB_TABLE_TOPICS_ACTIVITY) {
       return currentPresenter || "Book Club Master"
@@ -783,7 +793,11 @@ function SessionFields({
 }) {
   const inSection = sectionKey !== "general"
   const preparedSpeechOptions = allSessions.filter((candidate) => candidate.activity === "Prepared Speech")
-  const isLinkedReport = session.activity === "Grammarian's Report" || session.activity === "Timer's Report"
+  const isLinkedReport =
+    session.activity === "Grammarian's Report" ||
+    session.activity === HARKMASTER_QUIZ_ACTIVITY ||
+    session.activity === "Timer's Report" ||
+    session.activity === BALLOT_COLLECTION_ACTIVITY
 
   return (
     <>
@@ -930,7 +944,7 @@ function SessionFields({
             value={session.presenter}
             onChange={(e) => onUpdate({ presenter: e.target.value })}
             disabled={isLinkedReport}
-            title={isLinkedReport ? "Automatically synchronized with the corresponding introduction role." : undefined}
+            title={isLinkedReport ? "Automatically synchronized with the corresponding meeting role." : undefined}
           />
           {session.activity === "Individual Evaluation" ? (
             <select

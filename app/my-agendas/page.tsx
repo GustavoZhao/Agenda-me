@@ -10,6 +10,7 @@ type AgendaListItem = {
   title: string
   meetingDate: string | null
   updatedAt: string
+  canEdit: boolean
 }
 
 export default function MyAgendasPage() {
@@ -102,11 +103,22 @@ export default function MyAgendasPage() {
                       View
                     </Button>
                   </Link>
-                  <Link href={`/?slug=${encodeURIComponent(item.slug)}`}>
-                    <Button type="button" size="sm">
+                  {item.canEdit ? (
+                    <Link href={`/?slug=${encodeURIComponent(item.slug)}`}>
+                      <Button type="button" size="sm">
+                        Edit
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled
+                      title="You can view this agenda, but only its creator or a club editor can edit it."
+                    >
                       Edit
                     </Button>
-                  </Link>
+                  )}
                   <Button type="button" variant="outline" size="sm" onClick={() => remove(item.slug)}>
                     Delete
                   </Button>

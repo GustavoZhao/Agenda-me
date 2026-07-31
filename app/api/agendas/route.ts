@@ -3,7 +3,7 @@ import { db } from "@/lib/db"
 import { getAuthSession } from "@/lib/auth"
 import { normalizeSettings, type AgendaSettings } from "@/lib/agenda"
 import { makeReadableSlug } from "@/lib/slug"
-import { canCreateAgendaByRole } from "@/lib/permissions"
+import { canCreateAgendaByRole, canUpdateAgendaByRole } from "@/lib/permissions"
 
 async function ensureDefaultClub(userId: string) {
   const membership = await db.clubMembership.findFirst({
@@ -43,10 +43,11 @@ export async function GET(req: Request) {
 
   const memberships = await db.clubMembership.findMany({
     where: { userId: session.user.id },
-    select: { clubId: true },
+    select: { clubId: true, role: true },
   })
 
   const clubIds = memberships.map((m: { clubId: string }) => m.clubId)
+  const rolesByClubId = new Map(memberships.map((membership) => [membership.clubId, membership.role]))
 
   const agendas = await db.agenda.findMany({
     where: {
@@ -66,10 +67,23 @@ export async function GET(req: Request) {
       meetingDate: true,
       updatedAt: true,
       clubId: true,
+      ownerId: true,
     },
   })
 
-  return NextResponse.json({ items: agendas })
+  return NextResponse.json({
+    items: agendas.map((agenda) => ({
+      id: agenda.id,
+      slug: agenda.slug,
+      title: agenda.title,
+      meetingDate: agenda.meetingDate,
+      updatedAt: agenda.updatedAt,
+      canEdit: canUpdateAgendaByRole(
+        rolesByClubId.get(agenda.clubId) ?? null,
+        agenda.ownerId === session.user.id
+      ),
+    })),
+  })
 }
 
 export async function POST(req: Request) {
