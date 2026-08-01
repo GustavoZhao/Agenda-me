@@ -1,11 +1,12 @@
 "use client"
 
-import { Suspense, useEffect, useState } from "react"
+import { Suspense, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { signOut as nextAuthSignOut } from "next-auth/react"
 import {
   type AgendaSettings,
+  type ClubInfo,
   DEFAULT_SETTINGS,
   normalizeSettings,
   resetMeetingPreservingClub,
@@ -45,11 +46,14 @@ function PageContent() {
   const [memberName, setMemberName] = useState("")
   const [clubs, setClubs] = useState<ClubSummary[]>([])
   const [activeClubId, setActiveClubId] = useState("")
+  const [activeClubInfo, setActiveClubInfo] = useState<ClubInfo | null>(null)
   const [showSignOutDialog, setShowSignOutDialog] = useState(false)
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [showGuestGuide, setShowGuestGuide] = useState(true)
+  const newAgendaRequestHandled = useRef(false)
 
   const editingSlug = searchParams.get("slug")
+  const newAgendaRequested = searchParams.get("new") === "1"
 
   useEffect(() => {
     const storedTheme = window.localStorage.getItem("agenda-theme")
@@ -96,17 +100,26 @@ function PageContent() {
     const storageKey = isAuthenticated ? MEMBER_STORAGE_KEY : GUEST_STORAGE_KEY
     try {
       const raw = localStorage.getItem(storageKey)
-      if (raw) {
-        const parsed = JSON.parse(raw) as Partial<AgendaSettings>
-        setSettings(normalizeSettings(parsed))
-      } else {
-        setSettings(DEFAULT_SETTINGS)
+      const restored = raw
+        ? normalizeSettings(JSON.parse(raw) as Partial<AgendaSettings>)
+        : DEFAULT_SETTINGS
+      const nextSettings = newAgendaRequested && !newAgendaRequestHandled.current
+        ? resetMeetingPreservingClub(restored)
+        : restored
+
+      if (newAgendaRequested && !newAgendaRequestHandled.current) {
+        newAgendaRequestHandled.current = true
+        localStorage.setItem(storageKey, JSON.stringify(nextSettings))
+        setCurrentSlug(null)
+        router.replace("/")
       }
+
+      setSettings(nextSettings)
     } catch {
       setSettings(DEFAULT_SETTINGS)
     }
     setLoaded(true)
-  }, [authChecked, editingSlug, isAuthenticated])
+  }, [authChecked, editingSlug, isAuthenticated, newAgendaRequested, router])
 
   useEffect(() => {
     if (!loaded || !authChecked || editingSlug) return
@@ -186,39 +199,39 @@ function PageContent() {
 
         window.localStorage.setItem("active-club-id", activeClubId)
 
-        setSettings((prev) => ({
-          ...prev,
-          clubInfo: {
-            ...prev.clubInfo,
-            clubName: detail.club.name,
-            slogan: detail.club.slogan ?? "",
-            meetingType: detail.club.meetingType,
-            inPersonAddress: detail.club.inPersonAddress ?? "",
-            onlinePlatform: detail.club.onlinePlatform ?? "",
-            onlineMeetingId: detail.club.onlineMeetingId ?? "",
-            onlinePasscode: detail.club.onlinePasscode ?? "",
-            president: detail.club.president ?? "",
-            vpe: detail.club.vpe ?? "",
-            vpm: detail.club.vpm ?? "",
-            vppr: detail.club.vppr ?? "",
-            secretary: detail.club.secretary ?? "",
-            treasurer: detail.club.treasurer ?? "",
-            saa: detail.club.saa ?? "",
-            ipp: detail.club.ipp ?? "",
-            mentors: detail.club.mentors ?? "",
-            sponsors: detail.club.sponsors ?? "",
-            advisor: detail.club.advisor ?? "",
-            participantNotesTitle: detail.club.participantNotesTitle ?? "",
-            participantNotesBody: detail.club.participantNotesBody ?? "",
-            vpmContactNote: detail.club.vpmContactNote ?? "",
-            clubNumber: detail.club.clubNumber ?? "",
-            area: detail.club.area ?? "",
-            division: detail.club.division ?? "",
-            district: detail.club.district ?? "",
-            vpmWechatQr: detail.club.wechatQrUrl ?? "",
-            vpmWhatsappQr: detail.club.whatsappQrUrl ?? "",
-          },
-        }))
+        const clubInfo: ClubInfo = {
+          ...DEFAULT_SETTINGS.clubInfo,
+          clubName: detail.club.name,
+          slogan: detail.club.slogan ?? "",
+          meetingType: detail.club.meetingType,
+          inPersonAddress: detail.club.inPersonAddress ?? "",
+          onlinePlatform: detail.club.onlinePlatform ?? "",
+          onlineMeetingId: detail.club.onlineMeetingId ?? "",
+          onlinePasscode: detail.club.onlinePasscode ?? "",
+          president: detail.club.president ?? "",
+          vpe: detail.club.vpe ?? "",
+          vpm: detail.club.vpm ?? "",
+          vppr: detail.club.vppr ?? "",
+          secretary: detail.club.secretary ?? "",
+          treasurer: detail.club.treasurer ?? "",
+          saa: detail.club.saa ?? "",
+          ipp: detail.club.ipp ?? "",
+          mentors: detail.club.mentors ?? "",
+          sponsors: detail.club.sponsors ?? "",
+          advisor: detail.club.advisor ?? "",
+          participantNotesTitle: detail.club.participantNotesTitle ?? "",
+          participantNotesBody: detail.club.participantNotesBody ?? "",
+          vpmContactNote: detail.club.vpmContactNote ?? "",
+          clubNumber: detail.club.clubNumber ?? "",
+          area: detail.club.area ?? "",
+          division: detail.club.division ?? "",
+          district: detail.club.district ?? "",
+          vpmWechatQr: detail.club.wechatQrUrl ?? "",
+          vpmWhatsappQr: detail.club.whatsappQrUrl ?? "",
+        }
+
+        setActiveClubInfo(clubInfo)
+        setSettings((prev) => ({ ...prev, clubInfo }))
       } catch {
         // ignore profile loading errors
       }
@@ -253,6 +266,30 @@ function PageContent() {
         router.replace("/")
       }
     }
+  }
+
+  function startNewAgenda() {
+    const shouldContinue = window.confirm(
+      "Create a new Standard 3-speech agenda? Unsaved meeting changes will be cleared, while the active club information will be kept."
+    )
+    if (!shouldContinue) return
+
+    const nextSettings = resetMeetingPreservingClub({
+      ...settings,
+      clubInfo: activeClubInfo ?? settings.clubInfo,
+    })
+    setSettings(nextSettings)
+    setCurrentSlug(null)
+    setShareMessage("New Standard agenda created. Save it to create a separate shareable link.")
+
+    const storageKey = isAuthenticated ? MEMBER_STORAGE_KEY : GUEST_STORAGE_KEY
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify(nextSettings))
+    } catch {
+      // ignore storage errors
+    }
+
+    if (editingSlug || newAgendaRequested) router.replace("/")
   }
 
   async function saveAndShare() {
@@ -349,6 +386,7 @@ function PageContent() {
             isExporting={isExporting}
             onActiveClubChange={setActiveClubId}
             onExport={exportAgenda}
+            onNew={startNewAgenda}
             onPrint={() => window.print()}
             onReset={reset}
             onSave={saveAndShare}

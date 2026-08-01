@@ -412,7 +412,14 @@ function SectionRows({
     <>
       <tr className="agenda-section-row border-b border-border/60 bg-[#F2DF74]/20">
         <td colSpan={5} className="px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-foreground">
-          {label}
+          <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <span>{label}</span>
+            {sectionKey === "evaluations" ? (
+              <span className="font-medium normal-case tracking-normal text-muted-foreground">
+                Hosted by the General Evaluator
+              </span>
+            ) : null}
+          </span>
         </td>
       </tr>
       {rows.map((row) => (

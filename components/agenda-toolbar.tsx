@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { FileImage, LogIn, LogOut, Moon, Printer, RotateCcw, Save, SunMedium, UserRound } from "lucide-react"
+import { FileImage, FilePlus2, LogIn, LogOut, Moon, Printer, RotateCcw, Save, SunMedium, UserRound } from "lucide-react"
 
 import { Button, buttonVariants } from "@/components/ui/button"
 import { truncateLabel } from "@/lib/display"
@@ -22,6 +22,7 @@ type Props = {
   theme: "light" | "dark"
   onActiveClubChange: (clubId: string) => void
   onExport: () => void
+  onNew: () => void
   onPrint: () => void
   onReset: () => void
   onSave: () => void
@@ -38,6 +39,7 @@ export function AgendaToolbar({
   theme,
   onActiveClubChange,
   onExport,
+  onNew,
   onPrint,
   onReset,
   onSave,
@@ -99,6 +101,10 @@ export function AgendaToolbar({
       <Button type="button" variant="outline" size="sm" onClick={onReset}>
         <RotateCcw className="size-4" aria-hidden="true" />
         Reset
+      </Button>
+      <Button type="button" variant="outline" size="sm" onClick={onNew}>
+        <FilePlus2 className="size-4" aria-hidden="true" />
+        New Agenda
       </Button>
       <Button type="button" variant="outline" size="sm" onClick={onSave}>
         <Save className="size-4" aria-hidden="true" />

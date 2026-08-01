@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import { Copy, FilePlus2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 type AgendaListItem = {
@@ -18,6 +19,7 @@ export default function MyAgendasPage() {
   const [items, setItems] = useState<AgendaListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [duplicatingSlug, setDuplicatingSlug] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -56,6 +58,27 @@ export default function MyAgendasPage() {
     setItems((prev) => prev.filter((item) => item.slug !== slug))
   }
 
+  async function duplicate(slug: string) {
+    setDuplicatingSlug(slug)
+    try {
+      const response = await fetch(`/api/agendas/${encodeURIComponent(slug)}/duplicate`, {
+        method: "POST",
+      })
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as { error?: string }
+        window.alert(payload.error || "Failed to duplicate agenda.")
+        return
+      }
+
+      const duplicated = (await response.json()) as AgendaListItem
+      setItems((current) => [duplicated, ...current])
+    } catch {
+      window.alert("Failed to duplicate agenda.")
+    } finally {
+      setDuplicatingSlug(null)
+    }
+  }
+
   const empty = useMemo(() => !loading && !error && items.length === 0, [items.length, loading, error])
 
   return (
@@ -64,13 +87,21 @@ export default function MyAgendasPage() {
         <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-xl font-semibold text-foreground">My Agendas</h1>
-            <p className="text-sm text-muted-foreground">Search, open, and delete your previously saved agendas.</p>
+            <p className="text-sm text-muted-foreground">Search, open, duplicate, and manage your saved agendas.</p>
           </div>
-          <Link href="/">
-            <Button type="button" variant="outline" size="sm">
-              Back to Editor
-            </Button>
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link href="/?new=1">
+              <Button type="button" size="sm">
+                <FilePlus2 className="size-4" aria-hidden="true" />
+                New Agenda
+              </Button>
+            </Link>
+            <Link href="/">
+              <Button type="button" variant="outline" size="sm">
+                Back to Editor
+              </Button>
+            </Link>
+          </div>
         </header>
 
         <div className="mb-4">
@@ -119,6 +150,16 @@ export default function MyAgendasPage() {
                       Edit
                     </Button>
                   )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => duplicate(item.slug)}
+                    disabled={duplicatingSlug !== null}
+                  >
+                    <Copy className="size-4" aria-hidden="true" />
+                    {duplicatingSlug === item.slug ? "Duplicating…" : "Duplicate"}
+                  </Button>
                   <Button type="button" variant="outline" size="sm" onClick={() => remove(item.slug)}>
                     Delete
                   </Button>
