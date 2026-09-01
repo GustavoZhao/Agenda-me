@@ -369,7 +369,7 @@ function PageContent() {
         {/* Top toolbar */}
         <header className="mb-6 flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div className="min-w-0">
-            <h1 className="bg-gradient-to-r from-[#772432] via-[#004165] to-[#A98822] bg-clip-text text-2xl font-black leading-tight text-transparent [font-family:var(--font-montserrat)] sm:text-[1.7rem] dark:from-[#F2DF74] dark:via-[#8DC8E8] dark:to-[#E9A3AD]">
+            <h1 className="bg-gradient-to-r from-[#772432] via-[#004165] to-[#A98822] bg-clip-text text-2xl font-black leading-tight text-transparent [font-family:var(--font-montserrat)] sm:text-[1.7rem] dark:from-[#A9B2B1] dark:via-[#D7DCDB] dark:to-[#F5F5F5]">
               Speechaholic Agenda Builder
             </h1>
             <p className="max-w-2xl text-sm text-muted-foreground">

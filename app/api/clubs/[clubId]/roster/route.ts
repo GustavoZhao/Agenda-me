@@ -29,25 +29,30 @@ export async function GET(
   const { searchParams } = new URL(req.url)
   const q = searchParams.get("q")?.trim() ?? ""
 
-  const items = await db.rosterMember.findMany({
-    where: {
-      clubId,
-      OR: q
-        ? [
-            { name: { contains: q, mode: "insensitive" } },
-            { memberNumber: { contains: q, mode: "insensitive" } },
-            { credential: { contains: q, mode: "insensitive" } },
-            { email: { contains: q, mode: "insensitive" } },
-            { status: { contains: q, mode: "insensitive" } },
-            { currentPosition: { contains: q, mode: "insensitive" } },
-            { pathwaysEnrolled: { contains: q, mode: "insensitive" } },
-          ]
-        : undefined,
-    },
-    orderBy: { name: "asc" },
-  })
+  try {
+    const items = await db.rosterMember.findMany({
+      where: {
+        clubId,
+        OR: q
+          ? [
+              { name: { contains: q, mode: "insensitive" } },
+              { memberNumber: { contains: q, mode: "insensitive" } },
+              { credential: { contains: q, mode: "insensitive" } },
+              { email: { contains: q, mode: "insensitive" } },
+              { status: { contains: q, mode: "insensitive" } },
+              { currentPosition: { contains: q, mode: "insensitive" } },
+              { pathwaysEnrolled: { contains: q, mode: "insensitive" } },
+            ]
+          : undefined,
+      },
+      orderBy: { name: "asc" },
+    })
 
-  return NextResponse.json({ items })
+    return NextResponse.json({ items })
+  } catch (error) {
+    console.error("Failed to load roster:", error)
+    return NextResponse.json({ error: "Failed to load the saved member roster." }, { status: 500 })
+  }
 }
 
 export async function POST(

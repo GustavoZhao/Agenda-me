@@ -38,6 +38,21 @@ describe("anonymous agenda defaults", () => {
     expect(CLUB_MISSION).toContain("self-confidence and personal growth")
   })
 
+  it("keeps legacy agendas as single-club meetings while normalizing joint club fields", () => {
+    const legacy = normalizeSettings({ meetingTitle: "Legacy Meeting" })
+    expect(legacy.isJointMeeting).toBe(false)
+    expect(legacy.jointClubInfo.clubName).toBe("Partner Toastmasters Club")
+
+    const joint = normalizeSettings({
+      isJointMeeting: true,
+      meetingNumber: "245",
+      jointClubInfo: { ...DEFAULT_SETTINGS.jointClubInfo, clubName: "Global Speakers Club", meetingNumber: "88" },
+    })
+    expect(joint.isJointMeeting).toBe(true)
+    expect(joint.meetingNumber).toBe("245")
+    expect(joint.jointClubInfo).toMatchObject({ clubName: "Global Speakers Club", meetingNumber: "88" })
+  })
+
   it("keeps the meeting SAA separate from the club officer SAA", () => {
     const result = applyAgendaTemplateImport(
       normalizeSettings(DEFAULT_SETTINGS),
@@ -234,5 +249,41 @@ describe("meeting templates", () => {
     expect(getIndividualEvaluationLabel(evaluation, sessions)).toBe(
       "Evaluation of Alex Smith’s Speech"
     )
+  })
+})
+
+describe("smart import", () => {
+  it("recognizes flexible separators, joint meetings, meeting numbers, Harkmaster and word fields", () => {
+    const result = applyAgendaTemplateImport(DEFAULT_SETTINGS, [
+      "Joint Meeting",
+      "Meeting title：Across Borders",
+      "Meeting No. 245",
+      "1 September 2026 | 19:30 – 21:30",
+      "ToM — Alex Chen",
+      "Meeting SAA - Jordan Lee",
+      "Harkmaster: Priya Shah",
+      "Word of the Meeting: Serendipity (noun)",
+      "Speaker 1 — Mei Lin",
+      "Evaluator 1: Carlos Ruiz",
+    ].join("\n"))
+
+    expect(result.settings).toMatchObject({
+      isJointMeeting: true,
+      meetingTitle: "Across Borders",
+      meetingNumber: "245",
+      meetingDate: "2026-09-01",
+      startTime: "19:30",
+      meetingSaa: "Jordan Lee",
+      wordOfTheDay: "Serendipity",
+      wordPartOfSpeech: "noun",
+    })
+    expect(result.settings.sessions.find((session) => session.activity === INTRODUCTION_OF_HARKMASTER_ACTIVITY)?.presenter).toBe("Priya Shah")
+    expect(result.settings.sessions.find((session) => session.activity === HARKMASTER_QUIZ_ACTIVITY)?.presenter).toBe("Priya Shah")
+    expect(result.settings.sessions.find((session) => session.activity === "Prepared Speech")?.presenter).toBe("Mei Lin")
+  })
+
+  it("does not mistake a standalone role line for the meeting title", () => {
+    const result = applyAgendaTemplateImport(DEFAULT_SETTINGS, "Meeting SAA: Alex Smith")
+    expect(result.settings.meetingTitle).toBe(DEFAULT_SETTINGS.meetingTitle)
   })
 })

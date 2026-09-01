@@ -154,8 +154,22 @@ export type ClubInfo = {
   zoomPasscode: string
 }
 
+export type JointClubInfo = {
+  clubName: string
+  slogan: string
+  clubNumber: string
+  meetingNumber: string
+  area: string
+  division: string
+  district: string
+  vpmWechatQr: string
+  vpmWhatsappQr: string
+  vpmContactNote: string
+}
+
 export type AgendaSettings = {
   meetingTitle: string
+  meetingNumber: string
   meetingDate: string
   startTime: string // "HH:MM"
   meetingTimeZone: string // IANA time zone used to interpret the meeting start time
@@ -167,6 +181,8 @@ export type AgendaSettings = {
   wordOfTheDayMeaning: string
   sessions: Session[]
   clubInfo: ClubInfo
+  isJointMeeting: boolean
+  jointClubInfo: JointClubInfo
 }
 
 // Fixed club identity — this template is used by a single club.
@@ -240,6 +256,19 @@ export const DEFAULT_CLUB_INFO: ClubInfo = {
   vpmContactNote: "Add your VPM contact details or QR codes here.",
   zoomMeetingId: "",
   zoomPasscode: "",
+}
+
+export const DEFAULT_JOINT_CLUB_INFO: JointClubInfo = {
+  clubName: "Partner Toastmasters Club",
+  slogan: "Partner club slogan goes here",
+  clubNumber: "",
+  meetingNumber: "",
+  area: "",
+  division: "",
+  district: "",
+  vpmWechatQr: "",
+  vpmWhatsappQr: "",
+  vpmContactNote: "",
 }
 
 // Preset activities in the dropdown menu
@@ -491,6 +520,7 @@ export function createAgendaTemplateSessions(
 
 export const DEFAULT_SETTINGS: AgendaSettings = {
   meetingTitle: "Regular Meeting",
+  meetingNumber: "",
   meetingDate: "",
   startTime: "19:00",
   meetingTimeZone: "Asia/Shanghai",
@@ -593,6 +623,8 @@ export const DEFAULT_SETTINGS: AgendaSettings = {
     }),
   ],
   clubInfo: DEFAULT_CLUB_INFO,
+  isJointMeeting: false,
+  jointClubInfo: DEFAULT_JOINT_CLUB_INFO,
 }
 
 export function resetMeetingPreservingClub(settings: AgendaSettings): AgendaSettings {
@@ -881,20 +913,27 @@ export function normalizeSettings(raw: Partial<AgendaSettings>): AgendaSettings 
     meetingTimeZone: raw.meetingTimeZone || DEFAULT_SETTINGS.meetingTimeZone,
     sessions: synchronizeLinkedRoleSessions(sessions),
     clubInfo: { ...DEFAULT_CLUB_INFO, ...(raw.clubInfo ?? {}) },
+    isJointMeeting: raw.isJointMeeting ?? false,
+    jointClubInfo: { ...DEFAULT_JOINT_CLUB_INFO, ...(raw.jointClubInfo ?? {}) },
   }
 }
 
 type ParsedAgendaTemplate = {
   meetingTitle?: string
+  meetingNumber?: string
   meetingDate?: string
   startTime?: string
   tableTopicsTheme?: string
+  wordOfTheDay?: string
+  wordPartOfSpeech?: string
+  isJointMeeting?: boolean
   toastmaster?: string
   tableTopicsMaster?: string
   generalEvaluator?: string
   sergeantAtArms?: string
   grammarian?: string
   timer?: string
+  harkmaster?: string
   speakerNames: string[]
   evaluatorNames: string[]
 }
@@ -928,22 +967,34 @@ function normalizeClockTime(value: string): string {
 }
 
 function parseTemplateDate(value: string): string | null {
-  const match = value.match(/\b([A-Za-z]+)\s+(\d{1,2})(?:,?\s*(\d{4}))?\b/)
+  const numeric = value.match(/\b(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})\b/)
+  if (numeric) {
+    return `${numeric[1]}-${numeric[2].padStart(2, "0")}-${numeric[3].padStart(2, "0")}`
+  }
+
+  const dayFirstNumeric = value.match(/\b(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})\b/)
+  if (dayFirstNumeric) {
+    return `${dayFirstNumeric[3]}-${dayFirstNumeric[2].padStart(2, "0")}-${dayFirstNumeric[1].padStart(2, "0")}`
+  }
+
+  const match = value.match(/\b(?:([A-Za-z]+)\s+(\d{1,2})|(\d{1,2})\s+([A-Za-z]+))(?:,?\s*(\d{4}))?\b/)
   if (!match) return null
 
-  const monthIndex = MONTH_LOOKUP[match[1].toLowerCase()]
+  const monthName = match[1] ?? match[4]
+  const dayValue = match[2] ?? match[3]
+  const monthIndex = MONTH_LOOKUP[monthName.toLowerCase()]
   if (monthIndex === undefined) return null
 
-  const day = Number.parseInt(match[2], 10)
+  const day = Number.parseInt(dayValue, 10)
   if (Number.isNaN(day)) return null
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  const year = match[3] ? Number.parseInt(match[3], 10) : today.getFullYear()
+  const year = match[5] ? Number.parseInt(match[5], 10) : today.getFullYear()
   let date = new Date(year, monthIndex, day)
 
-  if (!match[3] && date < today) {
+  if (!match[5] && date < today) {
     date = new Date(year + 1, monthIndex, day)
   }
 
@@ -975,7 +1026,7 @@ function firstMatchingRoleValue(lines: string[], patterns: RegExp[]): string | n
 function parseAgendaTemplate(text: string): ParsedAgendaTemplate {
   const lines = text
     .split(/\r?\n/)
-    .map((line) => line.trim())
+    .map((line) => line.trim().replace(/^[•●▪◦*#✅☑️\-–—]+\s*/, "").replace(/：/g, ":"))
     .filter(Boolean)
 
   const parsed: ParsedAgendaTemplate = {
@@ -983,10 +1034,19 @@ function parseAgendaTemplate(text: string): ParsedAgendaTemplate {
     evaluatorNames: [],
   }
 
-  const titleLine = lines.find((line) => /book your role for/i.test(line)) ?? lines[0]
-  if (titleLine) {
-    parsed.meetingTitle = titleLine.replace(/^book your role for\s*/i, "").replace(/[!?.]+$/, "").trim()
+  const explicitTitle = firstMatchingRoleValue(lines, [
+    /(?:meeting\s+)?title\s*(?::|[-–—])\s*(.+)$/i,
+    /meeting\s+theme\s*(?::|[-–—])\s*(.+)$/i,
+  ])
+  const invitationTitle = lines.find((line) => /book your role for/i.test(line))
+  if (explicitTitle || invitationTitle) {
+    parsed.meetingTitle = explicitTitle ?? invitationTitle?.replace(/^book your role for\s*/i, "").replace(/[!?.]+$/, "").trim()
   }
+
+  parsed.meetingNumber = firstMatchingRoleValue(lines, [
+    /(?:club\s+)?meeting\s*(?:no\.?|number|#)\s*(?::|[-–—])?\s*#?([A-Za-z0-9-]+)$/i,
+  ]) ?? undefined
+  parsed.isJointMeeting = lines.some((line) => /\bjoint\s+(?:club\s+)?meeting\b/i.test(line)) || undefined
 
   const themeLine = lines.find((line) => /\btheme\s*:/i.test(line))
   if (themeLine) {
@@ -994,53 +1054,67 @@ function parseAgendaTemplate(text: string): ParsedAgendaTemplate {
     if (theme) parsed.tableTopicsTheme = theme
   }
 
-  const dateLine = lines.find((line) => /\|/.test(line) && /\d{1,2}:\d{2}\s*[-–—]\s*\d{1,2}:\d{2}/.test(line))
+  const dateLine = lines.find((line) => /\d{1,2}:\d{2}\s*[-–—]\s*\d{1,2}:\d{2}/.test(line))
   if (dateLine) {
     parsed.meetingDate = parseTemplateDate(dateLine) ?? undefined
     parsed.startTime = parseTemplateTimeRange(dateLine) ?? undefined
   }
 
   parsed.toastmaster = firstMatchingRoleValue(lines, [
-    /toastmaster\s+of\s+the\s+meeting\s*(?:\(tom\))?\s*:\s*(.+)$/i,
-    /tom\s*:\s*(.+)$/i,
-    /toastmaster\s*:\s*(.+)$/i,
-    /master of ceremonies\s*:\s*(.+)$/i,
-    /\btm\b\s*:\s*(.+)$/i,
+    /toastmaster\s+of\s+the\s+meeting\s*(?:\(tom\))?\s*(?::|[-–—])\s*(.+)$/i,
+    /tom\s*(?::|[-–—])\s*(.+)$/i,
+    /toastmaster\s*(?::|[-–—])\s*(.+)$/i,
+    /master of ceremonies\s*(?::|[-–—])\s*(.+)$/i,
+    /\btm\b\s*(?::|[-–—])\s*(.+)$/i,
   ]) ?? undefined
   parsed.tableTopicsMaster = firstMatchingRoleValue(lines, [
-    /table topics master\s*:\s*(.+)$/i,
-    /topics master\s*:\s*(.+)$/i,
-    /\bttm\b\s*:\s*(.+)$/i,
-    /\btable topics\s*:\s*(.+)$/i,
+    /table topics master\s*(?::|[-–—])\s*(.+)$/i,
+    /topics master\s*(?::|[-–—])\s*(.+)$/i,
+    /\bttm\b\s*(?::|[-–—])\s*(.+)$/i,
+    /\btable topics\s*(?::|[-–—])\s*(.+)$/i,
   ]) ?? undefined
   parsed.generalEvaluator = firstMatchingRoleValue(lines, [
-    /general evaluator\s*:\s*(.+)$/i,
-    /gen(?:eral)? eval(?:uator)?\s*:\s*(.+)$/i,
-    /evaluation master\s*:\s*(.+)$/i,
-    /\bge\b\s*:\s*(.+)$/i,
+    /general evaluator\s*(?::|[-–—])\s*(.+)$/i,
+    /gen(?:eral)? eval(?:uator)?\s*(?::|[-–—])\s*(.+)$/i,
+    /evaluation master\s*(?::|[-–—])\s*(.+)$/i,
+    /\bge\b\s*(?::|[-–—])\s*(.+)$/i,
   ]) ?? undefined
   parsed.sergeantAtArms = firstMatchingRoleValue(lines, [
-    /sergeant[-\s]?at[-\s]?arms\s*:\s*(.+)$/i,
-    /\bsaa\b\s*:\s*(.+)$/i,
+    /(?:meeting\s+)?sergeant[-\s]?at[-\s]?arms\s*(?::|[-–—])\s*(.+)$/i,
+    /(?:meeting\s+)?saa\s*(?::|[-–—])\s*(.+)$/i,
   ]) ?? undefined
   parsed.grammarian = firstMatchingRoleValue(lines, [
-    /\bgrammarian\b\s*:\s*(.+)$/i,
-    /word master\s*:\s*(.+)$/i,
+    /\bgrammarian\b\s*(?::|[-–—])\s*(.+)$/i,
+    /word master\s*(?::|[-–—])\s*(.+)$/i,
   ]) ?? undefined
   parsed.timer = firstMatchingRoleValue(lines, [
-    /\btimer\b\s*:\s*(.+)$/i,
-    /timekeeper\s*:\s*(.+)$/i,
+    /\btimer\b\s*(?::|[-–—])\s*(.+)$/i,
+    /timekeeper\s*(?::|[-–—])\s*(.+)$/i,
   ]) ?? undefined
+  parsed.harkmaster = firstMatchingRoleValue(lines, [
+    /hark\s*master\s*(?::|[-–—])\s*(.+)$/i,
+    /harkmaster\s*(?::|[-–—])\s*(.+)$/i,
+  ]) ?? undefined
+  parsed.wordOfTheDay = firstMatchingRoleValue(lines, [
+    /word\s+of\s+the\s+(?:day|meeting)\s*(?::|[-–—])\s*(.+?)(?:\s*\(([^)]+)\))?$/i,
+    /\bwotd\b\s*(?::|[-–—])\s*(.+)$/i,
+  ]) ?? undefined
+  const wordLine = lines.find((line) => /word\s+of\s+the\s+(?:day|meeting)|\bwotd\b/i.test(line))
+  const partMatch = wordLine?.match(/\(([^)]+)\)\s*$/)
+  if (partMatch) {
+    parsed.wordPartOfSpeech = partMatch[1].trim()
+    if (parsed.wordOfTheDay) parsed.wordOfTheDay = parsed.wordOfTheDay.replace(/\s*\([^)]+\)\s*$/, "").trim()
+  }
 
   for (const line of lines) {
-    const speakerMatch = line.match(/(?:prepared\s+)?speaker\s*(\d+)\s*:\s*(.+)$/i)
+    const speakerMatch = line.match(/(?:prepared\s+)?speaker\s*(\d+)\s*(?::|[-–—])\s*(.+)$/i)
     if (speakerMatch) {
       const index = Number.parseInt(speakerMatch[1], 10) - 1
       if (index >= 0) parsed.speakerNames[index] = speakerMatch[2].trim()
       continue
     }
 
-    const evaluatorMatch = line.match(/(?:speech\s+)?evaluator\s*(\d+)\s*:\s*(.+)$/i)
+    const evaluatorMatch = line.match(/(?:speech\s+)?evaluator\s*(\d+)\s*(?::|[-–—])\s*(.+)$/i)
     if (evaluatorMatch) {
       const index = Number.parseInt(evaluatorMatch[1], 10) - 1
       if (index >= 0) parsed.evaluatorNames[index] = evaluatorMatch[2].trim()
@@ -1299,6 +1373,18 @@ export function applyAgendaTemplateImport(settings: AgendaSettings, text: string
     addPreview("Meeting title", parsed.meetingTitle)
   }
 
+  if (parsed.meetingNumber) {
+    next.meetingNumber = parsed.meetingNumber
+    matchedFields.push("meeting number")
+    addPreview("Meeting number", parsed.meetingNumber)
+  }
+
+  if (parsed.isJointMeeting) {
+    next.isJointMeeting = true
+    matchedFields.push("joint meeting")
+    addPreview("Meeting format", "Joint meeting")
+  }
+
   if (parsed.meetingDate) {
     next.meetingDate = parsed.meetingDate
     matchedFields.push("meeting date")
@@ -1319,6 +1405,18 @@ export function applyAgendaTemplateImport(settings: AgendaSettings, text: string
     )
     matchedFields.push("table topics theme")
     addPreview("Table Topics theme", parsed.tableTopicsTheme)
+  }
+
+  if (parsed.wordOfTheDay) {
+    next.wordOfTheDay = parsed.wordOfTheDay
+    matchedFields.push("word of the day")
+    addPreview("Word of the Day", parsed.wordOfTheDay)
+  }
+
+  if (parsed.wordPartOfSpeech) {
+    next.wordPartOfSpeech = parsed.wordPartOfSpeech
+    matchedFields.push("part of speech")
+    addPreview("Part of speech", parsed.wordPartOfSpeech)
   }
 
   if (parsed.sergeantAtArms) {
@@ -1361,6 +1459,13 @@ export function applyAgendaTemplateImport(settings: AgendaSettings, text: string
     next.sessions = applyValuesToActivity(next.sessions, "Timer's Report", [parsed.timer])
     matchedFields.push("timer")
     addPreview("Timer", parsed.timer)
+  }
+
+  if (parsed.harkmaster) {
+    next.sessions = applyValuesToActivity(next.sessions, INTRODUCTION_OF_HARKMASTER_ACTIVITY, [parsed.harkmaster])
+    next.sessions = applyValuesToActivity(next.sessions, HARKMASTER_QUIZ_ACTIVITY, [parsed.harkmaster])
+    matchedFields.push("harkmaster")
+    addPreview("Harkmaster", parsed.harkmaster)
   }
 
   if (parsed.speakerNames.some(Boolean)) {

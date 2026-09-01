@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Upload, X } from "lucide-react"
+import { ChevronRight, Upload, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { applyAgendaTemplateImport, type AgendaSettings } from "@/lib/agenda"
@@ -13,6 +13,7 @@ type Props = {
 
 export function SmartImport({ settings, onChange }: Props) {
   const [templateText, setTemplateText] = useState("")
+  const [open, setOpen] = useState(false)
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [pendingImport, setPendingImport] = useState<ReturnType<typeof applyAgendaTemplateImport> | null>(null)
 
@@ -49,13 +50,22 @@ export function SmartImport({ settings, onChange }: Props) {
   }
 
   return (
-    <section className="rounded-xl border border-primary/20 bg-card p-5 shadow-sm">
-      <div className="mb-4 flex flex-col gap-1">
-        <h2 className="text-lg font-semibold text-card-foreground">Smart Import</h2>
-        <p className="text-sm text-muted-foreground">
-          Paste a role announcement or signup post here, then auto-fill the meeting date, time, and meeting roles.
+    <section className="rounded-xl border border-primary/20 bg-card shadow-sm">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="flex w-full items-center gap-2 px-5 py-4 text-left"
+        aria-expanded={open}
+      >
+        <ChevronRight className={`size-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`} aria-hidden="true" />
+        <span className="text-lg font-semibold text-card-foreground">Smart Import</span>
+        <span className="ml-auto text-xs text-muted-foreground">Paste a role announcement</span>
+      </button>
+
+      {open ? <div className="border-t border-border px-5 py-5">
+        <p className="mb-4 text-sm text-muted-foreground">
+          Paste a role announcement or signup post here, then auto-fill the meeting date, time, theme, and meeting roles.
         </p>
-      </div>
 
       <label className="flex min-w-0 flex-col gap-1.5">
         <span className="text-sm font-medium text-foreground">Paste role template</span>
@@ -99,6 +109,7 @@ export function SmartImport({ settings, onChange }: Props) {
           </dl>
         </div>
       ) : null}
+      </div> : null}
     </section>
   )
 }

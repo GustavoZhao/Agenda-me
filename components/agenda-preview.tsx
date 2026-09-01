@@ -135,6 +135,22 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
   ]
     .filter(Boolean)
     .join(", ")
+  const jointClubMeta = [
+    settings.jointClubInfo.area?.trim() ? `Area ${settings.jointClubInfo.area.trim()}` : "",
+    settings.jointClubInfo.division?.trim() ? `Division ${settings.jointClubInfo.division.trim()}` : "",
+    settings.jointClubInfo.district?.trim() ? `District ${settings.jointClubInfo.district.trim()}` : "",
+    settings.jointClubInfo.clubNumber?.trim() ? `Club No. ${settings.jointClubInfo.clubNumber.trim()}` : "",
+  ].filter(Boolean).join(", ")
+  const clubIdentities = [
+    { name: clubName, slogan: clubSlogan, meta: clubMeta },
+    ...(settings.isJointMeeting
+      ? [{
+          name: settings.jointClubInfo.clubName?.trim() || "Partner Toastmasters Club",
+          slogan: settings.jointClubInfo.slogan?.trim() || "Partner club slogan goes here",
+          meta: jointClubMeta,
+        }]
+      : []),
+  ]
   const displayStartTime = convertAgendaTimeToZone(
     startTime,
     settings.meetingDate,
@@ -173,18 +189,22 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
       <article id="agenda-sheet" className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
         {/* Header */}
         <header className="border-b-4 border-[#F2DF74] bg-gradient-to-r from-[#3B0104] to-[#781327] px-6 py-6 text-white dark:from-[#004165] dark:to-[#006094]">
-          <div className="flex items-center gap-4">
-            <div className="agenda-club-logo flex size-16 shrink-0 items-center justify-center overflow-hidden p-1.5">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={CLUB_LOGO_SRC || "/placeholder.svg"} alt="Club logo" className="size-full object-contain" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="agenda-club-name text-balance text-xl font-bold leading-tight" style={displayFont}>
-                {clubName}
-              </h1>
-              <p className="mt-1 text-pretty text-sm italic text-white/80">{clubSlogan}</p>
-              <p className="mt-1 text-xs font-medium text-white/70">{clubMeta}</p>
-            </div>
+          <div className={`agenda-club-identities grid gap-5 ${settings.isJointMeeting ? "sm:grid-cols-2" : "grid-cols-1"}`}>
+            {clubIdentities.map((identity, index) => (
+              <div key={`${identity.name}-${index}`} className="agenda-club-identity flex min-w-0 items-center gap-4">
+                <div className="agenda-club-logo flex size-16 shrink-0 items-center justify-center overflow-hidden p-1.5">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={CLUB_LOGO_SRC || "/placeholder.svg"} alt={`${identity.name} logo`} className="size-full object-contain" />
+                </div>
+                <div className="min-w-0">
+                  <h1 className="agenda-club-name text-balance text-xl font-bold leading-tight" style={displayFont}>
+                    {identity.name}
+                  </h1>
+                  <p className="mt-1 text-pretty text-sm italic text-white/80">{identity.slogan}</p>
+                  {identity.meta ? <p className="mt-1 text-xs font-medium text-white/70">{identity.meta}</p> : null}
+                </div>
+              </div>
+            ))}
           </div>
         </header>
 
@@ -192,6 +212,23 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="space-y-2">
               <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Meeting Information</div>
+
+              {(settings.meetingNumber?.trim() || (settings.isJointMeeting && settings.jointClubInfo.meetingNumber?.trim())) ? (
+                <div className="space-y-1 text-sm text-foreground">
+                  {settings.meetingNumber?.trim() ? (
+                    <div>
+                      <span className="font-medium text-muted-foreground">{settings.isJointMeeting ? `${clubName} Meeting No.:` : "Meeting No.:"}</span>{" "}
+                      {settings.meetingNumber.trim()}
+                    </div>
+                  ) : null}
+                  {settings.isJointMeeting && settings.jointClubInfo.meetingNumber?.trim() ? (
+                    <div>
+                      <span className="font-medium text-muted-foreground">{settings.jointClubInfo.clubName?.trim() || "Partner Club"} Meeting No.:</span>{" "}
+                      {settings.jointClubInfo.meetingNumber.trim()}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
 
               {(meetingType === "in_person" || meetingType === "hybrid") && (
                 <div className="space-y-1 text-sm text-foreground">
@@ -360,6 +397,7 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
 
             {(clubInfo.vpmWechatQr || clubInfo.vpmWhatsappQr || clubInfo.vpmContactNote?.trim()) && (
               <div className="mt-6">
+                {settings.isJointMeeting ? <p className="mb-2 text-center text-xs font-semibold text-muted-foreground">{clubName}</p> : null}
                 <div className="flex flex-wrap justify-center gap-6">
                   {clubInfo.vpmWechatQr && <QrBadge src={clubInfo.vpmWechatQr} label="WeChat" />}
                   {clubInfo.vpmWhatsappQr && <QrBadge src={clubInfo.vpmWhatsappQr} label="WhatsApp" />}
@@ -371,6 +409,26 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
                 ) : null}
               </div>
             )}
+            {settings.isJointMeeting && (
+              settings.jointClubInfo.vpmWechatQr ||
+              settings.jointClubInfo.vpmWhatsappQr ||
+              settings.jointClubInfo.vpmContactNote?.trim()
+            ) ? (
+              <div className="mt-6 border-t border-border pt-5">
+                <p className="mb-2 text-center text-xs font-semibold text-muted-foreground">
+                  {settings.jointClubInfo.clubName?.trim() || "Partner Toastmasters Club"}
+                </p>
+                <div className="flex flex-wrap justify-center gap-6">
+                  {settings.jointClubInfo.vpmWechatQr ? <QrBadge src={settings.jointClubInfo.vpmWechatQr} label="WeChat" /> : null}
+                  {settings.jointClubInfo.vpmWhatsappQr ? <QrBadge src={settings.jointClubInfo.vpmWhatsappQr} label="WhatsApp" /> : null}
+                </div>
+                {settings.jointClubInfo.vpmContactNote?.trim() ? (
+                  <p className="mt-3 text-pretty text-center text-xs leading-relaxed text-muted-foreground">
+                    {settings.jointClubInfo.vpmContactNote.trim()}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
             <ClubMission />
           </aside>
         </div>

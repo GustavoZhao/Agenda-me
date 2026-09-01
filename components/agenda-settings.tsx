@@ -14,6 +14,7 @@ import {
   type AgendaSettings,
   type AgendaTemplateId,
   type ClubInfo,
+  type JointClubInfo,
   findCredentialForMemberName,
   HARKMASTER_QUIZ_ACTIVITY,
   INTRODUCTION_OF_HARKMASTER_ACTIVITY,
@@ -52,6 +53,7 @@ const ONLINE_PLATFORMS = ["Zoom", "Teams", "Tencent Meeting"] as const
 export function AgendaSettingsPanel({ settings, onChange, showClubInfo = true }: Props) {
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [overDropIndex, setOverDropIndex] = useState<number | null>(null)
+  const [sessionsOpen, setSessionsOpen] = useState(true)
   const [credentialEntries, setCredentialEntries] = useState<MembershipCredentialEntry[]>([])
   const [initialCredentialBackfillDone, setInitialCredentialBackfillDone] = useState(false)
 
@@ -289,6 +291,7 @@ export function AgendaSettingsPanel({ settings, onChange, showClubInfo = true }:
   }
 
   function addSession() {
+    setSessionsOpen(true)
     update({
       sessions: [...settings.sessions, makeSession({ activity: "", buffer: settings.defaultBuffer })],
     })
@@ -312,9 +315,22 @@ export function AgendaSettingsPanel({ settings, onChange, showClubInfo = true }:
       <MeetingSettingsBlock settings={settings} update={update} onApplyBuffer={applyDefaultBuffer} />
 
       {/* Session list */}
-      <section className="rounded-xl border border-border bg-card p-5">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold text-card-foreground">Sessions</h2>
+      <section className="rounded-xl border border-border bg-card">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-4">
+          <button
+            type="button"
+            onClick={() => setSessionsOpen((value) => !value)}
+            className="flex min-w-0 items-center gap-2 text-left"
+            aria-expanded={sessionsOpen}
+            aria-controls="agenda-session-list"
+          >
+            <ChevronRight
+              className={`size-4 shrink-0 text-muted-foreground transition-transform ${sessionsOpen ? "rotate-90" : ""}`}
+              aria-hidden="true"
+            />
+            <span className="text-lg font-semibold text-card-foreground">Sessions</span>
+            <span className="text-xs text-muted-foreground">{settings.sessions.length}</span>
+          </button>
           <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
@@ -333,7 +349,7 @@ export function AgendaSettingsPanel({ settings, onChange, showClubInfo = true }:
           </div>
         </div>
 
-        <div className="flex flex-col">
+        {sessionsOpen ? <div id="agenda-session-list" className="flex flex-col px-5 pb-5">
           {settings.sessions.length > 0 && (
             <RowGap
               onAdd={() => insertSession(0)}
@@ -435,7 +451,7 @@ export function AgendaSettingsPanel({ settings, onChange, showClubInfo = true }:
           {settings.sessions.length === 0 && (
             <p className="py-6 text-center text-sm text-muted-foreground">No sessions yet. Click &quot;Add Session&quot; to start.</p>
           )}
-        </div>
+        </div> : null}
       </section>
     </div>
   )
@@ -534,6 +550,27 @@ function MeetingSettingsBlock({
     update({ clubInfo: { ...settings.clubInfo, ...partial } })
   }
 
+  function updateJointClubInfo(partial: Partial<JointClubInfo>) {
+    update({ jointClubInfo: { ...settings.jointClubInfo, ...partial } })
+  }
+
+  async function loadJointClubQr(
+    key: "vpmWechatQr" | "vpmWhatsappQr",
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = event.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith("image/")) return
+
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "")
+      reader.onerror = () => reject(reader.error)
+      reader.readAsDataURL(file)
+    })
+    updateJointClubInfo({ [key]: dataUrl })
+  }
+
   function applyTemplate(template: AgendaTemplateId) {
     const confirmed = window.confirm(
       "Apply this template? It will replace all sessions currently in the agenda."
@@ -543,7 +580,7 @@ function MeetingSettingsBlock({
     update({ sessions: createAgendaTemplateSessions(template, settings.meetingSaa) })
   }
 
-  const selectedMeetingType = settings.clubInfo.meetingType === "in_person" ? "in_person" : "online"
+  const selectedMeetingType = settings.clubInfo.meetingType || "online"
   const selectedPlatform = customPlatformSelected
     ? OTHER_PLATFORM_VALUE
     : ONLINE_PLATFORMS.includes(settings.clubInfo.onlinePlatform as (typeof ONLINE_PLATFORMS)[number])
@@ -589,6 +626,14 @@ function MeetingSettingsBlock({
                 className={inputClass}
                 value={settings.meetingTitle}
                 onChange={(e) => update({ meetingTitle: e.target.value })}
+              />
+            </Field>
+            <Field label="Club Meeting No." hint="The sequence number for this meeting of the active club.">
+              <input
+                className={inputClass}
+                value={settings.meetingNumber}
+                onChange={(e) => update({ meetingNumber: e.target.value })}
+                placeholder="e.g. 245"
               />
             </Field>
             <Field label="Meeting Date">
@@ -681,6 +726,71 @@ function MeetingSettingsBlock({
           </div>
 
           <div className="mt-6 border-t border-border pt-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Joint Meeting</h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Add a second club identity to the agenda header and contact section.
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={settings.isJointMeeting}
+                onClick={() => update({ isJointMeeting: !settings.isJointMeeting })}
+                className={`relative h-7 w-12 rounded-full transition-colors ${
+                  settings.isJointMeeting ? "bg-primary" : "bg-muted-foreground/30"
+                }`}
+              >
+                <span
+                  className={`absolute top-1 size-5 rounded-full bg-white shadow-sm transition-transform ${
+                    settings.isJointMeeting ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+                <span className="sr-only">Joint meeting</span>
+              </button>
+            </div>
+
+            {settings.isJointMeeting ? (
+              <div className="mt-4 rounded-lg border border-border bg-muted/25 p-4">
+                <h4 className="text-sm font-semibold text-foreground">Partner Club Information</h4>
+                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <Field label="Club Name">
+                    <input className={inputClass} value={settings.jointClubInfo.clubName} onChange={(e) => updateJointClubInfo({ clubName: e.target.value })} placeholder="Partner Toastmasters Club" />
+                  </Field>
+                  <Field label="Club Slogan">
+                    <input className={inputClass} value={settings.jointClubInfo.slogan} onChange={(e) => updateJointClubInfo({ slogan: e.target.value })} placeholder="Partner club slogan" />
+                  </Field>
+                  <Field label="Club Number">
+                    <input className={inputClass} value={settings.jointClubInfo.clubNumber} onChange={(e) => updateJointClubInfo({ clubNumber: e.target.value })} placeholder="Club number" />
+                  </Field>
+                  <Field label="Club Meeting No.">
+                    <input className={inputClass} value={settings.jointClubInfo.meetingNumber} onChange={(e) => updateJointClubInfo({ meetingNumber: e.target.value })} placeholder="e.g. 168" />
+                  </Field>
+                  <Field label="Area">
+                    <input className={inputClass} value={settings.jointClubInfo.area} onChange={(e) => updateJointClubInfo({ area: e.target.value })} />
+                  </Field>
+                  <Field label="Division">
+                    <input className={inputClass} value={settings.jointClubInfo.division} onChange={(e) => updateJointClubInfo({ division: e.target.value })} />
+                  </Field>
+                  <Field label="District">
+                    <input className={inputClass} value={settings.jointClubInfo.district} onChange={(e) => updateJointClubInfo({ district: e.target.value })} />
+                  </Field>
+                  <Field label="Contact Note">
+                    <input className={inputClass} value={settings.jointClubInfo.vpmContactNote} onChange={(e) => updateJointClubInfo({ vpmContactNote: e.target.value })} placeholder="Membership contact details" />
+                  </Field>
+                  <Field label="WeChat QR Code">
+                    <JointQrInput value={settings.jointClubInfo.vpmWechatQr} onChange={(event) => loadJointClubQr("vpmWechatQr", event)} onClear={() => updateJointClubInfo({ vpmWechatQr: "" })} />
+                  </Field>
+                  <Field label="WhatsApp QR Code">
+                    <JointQrInput value={settings.jointClubInfo.vpmWhatsappQr} onChange={(event) => loadJointClubQr("vpmWhatsappQr", event)} onClear={() => updateJointClubInfo({ vpmWhatsappQr: "" })} />
+                  </Field>
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="mt-6 border-t border-border pt-5">
             <h3 className="text-sm font-semibold text-foreground">Meeting Information</h3>
             <p className="mt-1 text-xs text-muted-foreground">
               Choose how attendees will join this meeting.
@@ -690,6 +800,7 @@ function MeetingSettingsBlock({
               {([
                 { value: "online", label: "Online" },
                 { value: "in_person", label: "In person" },
+                { value: "hybrid", label: "Hybrid" },
               ] as const).map((option) => (
                 <button
                   key={option.value}
@@ -707,7 +818,7 @@ function MeetingSettingsBlock({
               ))}
             </div>
 
-            {selectedMeetingType === "in_person" ? (
+            {selectedMeetingType === "in_person" || selectedMeetingType === "hybrid" ? (
               <div className="mt-4">
                 <Field label="Meeting Address">
                   <input
@@ -718,7 +829,9 @@ function MeetingSettingsBlock({
                   />
                 </Field>
               </div>
-            ) : (
+            ) : null}
+
+            {selectedMeetingType === "online" || selectedMeetingType === "hybrid" ? (
               <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field label="Meeting Platform">
                   <select
@@ -770,7 +883,7 @@ function MeetingSettingsBlock({
                   />
                 </Field>
               </div>
-            )}
+            ) : null}
           </div>
         </div>
       )}
@@ -1335,6 +1448,40 @@ function QrUpload({
         <div className="flex flex-col gap-2">
           <p className="text-sm text-muted-foreground">Static QR code</p>
         </div>
+      </div>
+    </div>
+  )
+}
+
+function JointQrInput({
+  value,
+  onChange,
+  onClear,
+}: {
+  value: string
+  onChange: (event: React.ChangeEvent<HTMLInputElement>) => void
+  onClear: () => void
+}) {
+  return (
+    <div className="flex min-h-20 items-center gap-3 rounded-md border border-input bg-background p-2">
+      <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded border border-border bg-muted/30">
+        {value ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={value} alt="QR code preview" className="size-full object-contain" />
+        ) : (
+          <span className="px-1 text-center text-[10px] text-muted-foreground">No image</span>
+        )}
+      </div>
+      <div className="flex min-w-0 flex-wrap gap-2">
+        <label className="cursor-pointer rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted">
+          Choose image
+          <input type="file" accept="image/*" className="sr-only" onChange={onChange} />
+        </label>
+        {value ? (
+          <button type="button" onClick={onClear} className="text-xs font-medium text-destructive hover:underline">
+            Remove
+          </button>
+        ) : null}
       </div>
     </div>
   )

@@ -45,6 +45,8 @@ export default function RosterPage() {
   const [newMember, setNewMember] = useState<MemberDraft>(EMPTY_MEMBER)
   const [selectedFileName, setSelectedFileName] = useState("")
   const [message, setMessage] = useState<string | null>(null)
+  const [isLoadingRoster, setIsLoadingRoster] = useState(false)
+  const [rosterError, setRosterError] = useState<string | null>(null)
 
   useEffect(() => {
     async function loadClubs() {
@@ -62,17 +64,41 @@ export default function RosterPage() {
   }, [])
 
   useEffect(() => {
+    const controller = new AbortController()
+
     async function loadRoster() {
       if (!activeClubId) return
-      const response = await fetch(`/api/clubs/${encodeURIComponent(activeClubId)}/roster?q=${encodeURIComponent(query)}`)
-      if (!response.ok) return
-      const data = (await response.json()) as { items: RosterItem[] }
-      setItems(data.items)
-      window.localStorage.setItem("active-club-id", activeClubId)
+      setIsLoadingRoster(true)
+      setRosterError(null)
+
+      try {
+        const response = await fetch(
+          `/api/clubs/${encodeURIComponent(activeClubId)}/roster?q=${encodeURIComponent(query)}`,
+          { cache: "no-store", signal: controller.signal }
+        )
+
+        if (!response.ok) {
+          const data = (await response.json().catch(() => ({}))) as { error?: string }
+          throw new Error(data.error || "Failed to load the saved member roster.")
+        }
+
+        const data = (await response.json()) as { items: RosterItem[] }
+        setItems(data.items)
+        window.localStorage.setItem("active-club-id", activeClubId)
+      } catch (error) {
+        if (controller.signal.aborted) return
+        setItems([])
+        setRosterError(error instanceof Error ? error.message : "Failed to load the saved member roster.")
+      } finally {
+        if (!controller.signal.aborted) setIsLoadingRoster(false)
+      }
     }
 
     const timer = window.setTimeout(loadRoster, 200)
-    return () => window.clearTimeout(timer)
+    return () => {
+      window.clearTimeout(timer)
+      controller.abort()
+    }
   }, [activeClubId, query])
 
   const canEdit = useMemo(() => {
@@ -186,6 +212,7 @@ export default function RosterPage() {
         <section className="rounded-lg border border-border bg-card p-4 space-y-3">
           <label className="block text-sm font-medium text-foreground">Active Club</label>
           <select
+            aria-label="Active club"
             value={activeClubId}
             onChange={(event) => setActiveClubId(event.target.value)}
             className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
@@ -253,6 +280,19 @@ export default function RosterPage() {
           </div>
 
           <div className="space-y-2">
+            {isLoadingRoster ? (
+              <p className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
+                Loading saved members…
+              </p>
+            ) : rosterError ? (
+              <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+                {rosterError} Please refresh the page or try again later.
+              </p>
+            ) : items.length === 0 ? (
+              <p className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
+                {query ? "No members match your search." : "No saved members were found for this club."}
+              </p>
+            ) : null}
             {items.map((item) => (
               <article
                 key={item.id}
