@@ -726,71 +726,6 @@ function MeetingSettingsBlock({
           </div>
 
           <div className="mt-6 border-t border-border pt-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-semibold text-foreground">Joint Meeting</h3>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Add a second club identity to the agenda header and contact section.
-                </p>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={settings.isJointMeeting}
-                onClick={() => update({ isJointMeeting: !settings.isJointMeeting })}
-                className={`relative h-7 w-12 rounded-full transition-colors ${
-                  settings.isJointMeeting ? "bg-primary" : "bg-muted-foreground/30"
-                }`}
-              >
-                <span
-                  className={`absolute top-1 size-5 rounded-full bg-white shadow-sm transition-transform ${
-                    settings.isJointMeeting ? "translate-x-6" : "translate-x-1"
-                  }`}
-                />
-                <span className="sr-only">Joint meeting</span>
-              </button>
-            </div>
-
-            {settings.isJointMeeting ? (
-              <div className="mt-4 rounded-lg border border-border bg-muted/25 p-4">
-                <h4 className="text-sm font-semibold text-foreground">Partner Club Information</h4>
-                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <Field label="Club Name">
-                    <input className={inputClass} value={settings.jointClubInfo.clubName} onChange={(e) => updateJointClubInfo({ clubName: e.target.value })} placeholder="Partner Toastmasters Club" />
-                  </Field>
-                  <Field label="Club Slogan">
-                    <input className={inputClass} value={settings.jointClubInfo.slogan} onChange={(e) => updateJointClubInfo({ slogan: e.target.value })} placeholder="Partner club slogan" />
-                  </Field>
-                  <Field label="Club Number">
-                    <input className={inputClass} value={settings.jointClubInfo.clubNumber} onChange={(e) => updateJointClubInfo({ clubNumber: e.target.value })} placeholder="Club number" />
-                  </Field>
-                  <Field label="Club Meeting No.">
-                    <input className={inputClass} value={settings.jointClubInfo.meetingNumber} onChange={(e) => updateJointClubInfo({ meetingNumber: e.target.value })} placeholder="e.g. 168" />
-                  </Field>
-                  <Field label="Area">
-                    <input className={inputClass} value={settings.jointClubInfo.area} onChange={(e) => updateJointClubInfo({ area: e.target.value })} />
-                  </Field>
-                  <Field label="Division">
-                    <input className={inputClass} value={settings.jointClubInfo.division} onChange={(e) => updateJointClubInfo({ division: e.target.value })} />
-                  </Field>
-                  <Field label="District">
-                    <input className={inputClass} value={settings.jointClubInfo.district} onChange={(e) => updateJointClubInfo({ district: e.target.value })} />
-                  </Field>
-                  <Field label="Contact Note">
-                    <input className={inputClass} value={settings.jointClubInfo.vpmContactNote} onChange={(e) => updateJointClubInfo({ vpmContactNote: e.target.value })} placeholder="Membership contact details" />
-                  </Field>
-                  <Field label="WeChat QR Code">
-                    <JointQrInput value={settings.jointClubInfo.vpmWechatQr} onChange={(event) => loadJointClubQr("vpmWechatQr", event)} onClear={() => updateJointClubInfo({ vpmWechatQr: "" })} />
-                  </Field>
-                  <Field label="WhatsApp QR Code">
-                    <JointQrInput value={settings.jointClubInfo.vpmWhatsappQr} onChange={(event) => loadJointClubQr("vpmWhatsappQr", event)} onClear={() => updateJointClubInfo({ vpmWhatsappQr: "" })} />
-                  </Field>
-                </div>
-              </div>
-            ) : null}
-          </div>
-
-          <div className="mt-6 border-t border-border pt-5">
             <h3 className="text-sm font-semibold text-foreground">Meeting Information</h3>
             <p className="mt-1 text-xs text-muted-foreground">
               Choose how attendees will join this meeting.
@@ -882,6 +817,86 @@ function MeetingSettingsBlock({
                     placeholder="Enter the meeting passcode"
                   />
                 </Field>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="mt-6 border-t border-border pt-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Joint Meeting</h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Add a second club identity to the agenda header and contact section.
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={settings.isJointMeeting}
+                onClick={() => update({ isJointMeeting: !settings.isJointMeeting })}
+                className={`relative h-7 w-12 rounded-full transition-colors ${
+                  settings.isJointMeeting ? "bg-primary" : "bg-muted-foreground/30"
+                }`}
+              >
+                <span
+                  className={`absolute left-0 top-1 size-5 rounded-full bg-white shadow-sm transition-transform ${
+                    settings.isJointMeeting ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+                <span className="sr-only">Joint meeting</span>
+              </button>
+            </div>
+
+            {settings.isJointMeeting ? (
+              <div className="mt-4 rounded-lg border border-border bg-muted/25 p-4">
+                <h4 className="text-sm font-semibold text-foreground">Partner Club Information</h4>
+                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <Field label="Club Name">
+                    <input className={inputClass} value={settings.jointClubInfo.clubName} onChange={(e) => updateJointClubInfo({ clubName: e.target.value })} placeholder="Partner Toastmasters Club" />
+                  </Field>
+                  <Field label="Club Slogan">
+                    <input className={inputClass} value={settings.jointClubInfo.slogan} onChange={(e) => updateJointClubInfo({ slogan: e.target.value })} placeholder="Partner club slogan" />
+                  </Field>
+                  <Field label="Club Number">
+                    <input className={inputClass} value={settings.jointClubInfo.clubNumber} onChange={(e) => updateJointClubInfo({ clubNumber: e.target.value })} placeholder="Club number" />
+                  </Field>
+                  <Field label="Club Meeting No.">
+                    <input className={inputClass} value={settings.jointClubInfo.meetingNumber} onChange={(e) => updateJointClubInfo({ meetingNumber: e.target.value })} placeholder="e.g. 168" />
+                  </Field>
+                  <Field label="Area">
+                    <input className={inputClass} value={settings.jointClubInfo.area} onChange={(e) => updateJointClubInfo({ area: e.target.value })} />
+                  </Field>
+                  <Field label="Division">
+                    <input className={inputClass} value={settings.jointClubInfo.division} onChange={(e) => updateJointClubInfo({ division: e.target.value })} />
+                  </Field>
+                  <Field label="District">
+                    <input className={inputClass} value={settings.jointClubInfo.district} onChange={(e) => updateJointClubInfo({ district: e.target.value })} />
+                  </Field>
+                  <div className="rounded-lg border border-border bg-background/70 p-4 sm:col-span-2">
+                    <h5 className="mb-3 text-sm font-semibold text-foreground">Partner Executive Committee</h5>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      {OFFICER_FIELDS.map((field) => (
+                        <Field key={field.key} label={field.label}>
+                          <input
+                            className={inputClass}
+                            value={settings.jointClubInfo[field.key]}
+                            onChange={(event) => updateJointClubInfo({ [field.key]: event.target.value })}
+                            placeholder={field.label}
+                          />
+                        </Field>
+                      ))}
+                    </div>
+                  </div>
+                  <Field label="Contact Note">
+                    <input className={inputClass} value={settings.jointClubInfo.vpmContactNote} onChange={(e) => updateJointClubInfo({ vpmContactNote: e.target.value })} placeholder="Membership contact details" />
+                  </Field>
+                  <Field label="WeChat QR Code">
+                    <JointQrInput value={settings.jointClubInfo.vpmWechatQr} onChange={(event) => loadJointClubQr("vpmWechatQr", event)} onClear={() => updateJointClubInfo({ vpmWechatQr: "" })} />
+                  </Field>
+                  <Field label="WhatsApp QR Code">
+                    <JointQrInput value={settings.jointClubInfo.vpmWhatsappQr} onChange={(event) => loadJointClubQr("vpmWhatsappQr", event)} onClear={() => updateJointClubInfo({ vpmWhatsappQr: "" })} />
+                  </Field>
+                </div>
               </div>
             ) : null}
           </div>

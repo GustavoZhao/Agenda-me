@@ -46,11 +46,20 @@ describe("anonymous agenda defaults", () => {
     const joint = normalizeSettings({
       isJointMeeting: true,
       meetingNumber: "245",
-      jointClubInfo: { ...DEFAULT_SETTINGS.jointClubInfo, clubName: "Global Speakers Club", meetingNumber: "88" },
+      jointClubInfo: {
+        ...DEFAULT_SETTINGS.jointClubInfo,
+        clubName: "Global Speakers Club",
+        meetingNumber: "88",
+        president: "Partner President",
+      },
     })
     expect(joint.isJointMeeting).toBe(true)
     expect(joint.meetingNumber).toBe("245")
-    expect(joint.jointClubInfo).toMatchObject({ clubName: "Global Speakers Club", meetingNumber: "88" })
+    expect(joint.jointClubInfo).toMatchObject({
+      clubName: "Global Speakers Club",
+      meetingNumber: "88",
+      president: "Partner President",
+    })
   })
 
   it("keeps the meeting SAA separate from the club officer SAA", () => {

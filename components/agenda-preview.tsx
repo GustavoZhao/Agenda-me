@@ -189,23 +189,56 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
       <article id="agenda-sheet" className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
         {/* Header */}
         <header className="border-b-4 border-[#F2DF74] bg-gradient-to-r from-[#3B0104] to-[#781327] px-6 py-6 text-white dark:from-[#004165] dark:to-[#006094]">
-          <div className={`agenda-club-identities grid gap-5 ${settings.isJointMeeting ? "sm:grid-cols-2" : "grid-cols-1"}`}>
-            {clubIdentities.map((identity, index) => (
-              <div key={`${identity.name}-${index}`} className="agenda-club-identity flex min-w-0 items-center gap-4">
-                <div className="agenda-club-logo flex size-16 shrink-0 items-center justify-center overflow-hidden p-1.5">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={CLUB_LOGO_SRC || "/placeholder.svg"} alt={`${identity.name} logo`} className="size-full object-contain" />
-                </div>
-                <div className="min-w-0">
-                  <h1 className="agenda-club-name text-balance text-xl font-bold leading-tight" style={displayFont}>
-                    {identity.name}
-                  </h1>
-                  <p className="mt-1 text-pretty text-sm italic text-white/80">{identity.slogan}</p>
-                  {identity.meta ? <p className="mt-1 text-xs font-medium text-white/70">{identity.meta}</p> : null}
+          {settings.isJointMeeting ? (
+            <div className="agenda-joint-header flex min-w-0 items-center gap-5">
+              <div className="agenda-club-logo flex size-[72px] min-h-[72px] min-w-[72px] shrink-0 items-center justify-center overflow-hidden p-1">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={CLUB_LOGO_SRC || "/placeholder.svg"} alt="Toastmasters International logo" className="size-full object-contain" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p
+                  className="agenda-joint-label text-center text-xs font-light uppercase tracking-[0.2em] text-white/75"
+                  style={displayFont}
+                >
+                  Joint Meeting
+                </p>
+                <h1
+                  className="agenda-joint-club-names mt-1 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 text-center text-lg font-black leading-tight"
+                  style={displayFont}
+                >
+                  <span className="min-w-0 text-balance">{clubIdentities[0].name}</span>
+                  <span className="text-sm font-light text-white/70" aria-hidden="true">X</span>
+                  <span className="min-w-0 text-balance">{clubIdentities[1].name}</span>
+                </h1>
+                <div className="agenda-joint-club-details mt-2 grid grid-cols-2 gap-5 text-center">
+                  {clubIdentities.map((identity, index) => (
+                    <div key={`${identity.name}-${index}`} className="min-w-0">
+                      <p className="text-pretty text-sm italic leading-tight text-white/80">{identity.slogan}</p>
+                      {identity.meta ? <p className="mt-1 text-xs font-medium leading-tight text-white/70">{identity.meta}</p> : null}
+                    </div>
+                  ))}
                 </div>
               </div>
-            ))}
-          </div>
+            </div>
+          ) : (
+            <div className="agenda-club-identities grid grid-cols-1 gap-5">
+              {clubIdentities.map((identity, index) => (
+                <div key={`${identity.name}-${index}`} className="agenda-club-identity flex min-w-0 items-center gap-4">
+                  <div className="agenda-club-logo flex size-[72px] min-h-[72px] min-w-[72px] shrink-0 items-center justify-center overflow-hidden p-1">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={CLUB_LOGO_SRC || "/placeholder.svg"} alt={`${identity.name} logo`} className="size-full object-contain" />
+                  </div>
+                  <div className="min-w-0">
+                    <h1 className="agenda-club-name text-balance text-xl font-bold leading-tight" style={displayFont}>
+                      {identity.name}
+                    </h1>
+                    <p className="mt-1 text-pretty text-sm italic text-white/80">{identity.slogan}</p>
+                    {identity.meta ? <p className="mt-1 text-xs font-medium text-white/70">{identity.meta}</p> : null}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </header>
 
         <div className="agenda-information-panel border-b border-border bg-background/90 px-6 py-4">
@@ -373,20 +406,47 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
             ) : null}
 
             <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-primary" style={displayFont}>
-              Executive Committee
+              {settings.isJointMeeting ? "Executive Committees" : "Executive Committee"}
             </h2>
-            <dl className="agenda-officer-list flex flex-col gap-1.5 text-sm">
-              {OFFICER_FIELDS.map((f) => {
-                const value = clubInfo[f.key]
-                if (!value) return null
-                return (
-                  <div key={f.key} className="flex gap-2">
-                    <dt className="shrink-0 font-medium text-muted-foreground">{f.label}:</dt>
-                    <dd className="min-w-0 text-card-foreground">{value}</dd>
-                  </div>
-                )
-              })}
-            </dl>
+            <div className={`agenda-committee-groups grid gap-5 ${settings.isJointMeeting ? "sm:grid-cols-2" : "grid-cols-1"}`}>
+              <section className="min-w-0">
+                {settings.isJointMeeting ? (
+                  <h3 className="mb-2 text-xs font-semibold text-muted-foreground">{clubName}</h3>
+                ) : null}
+                <dl className="agenda-officer-list flex flex-col gap-1.5 text-sm">
+                  {OFFICER_FIELDS.map((field) => {
+                    const value = clubInfo[field.key]
+                    if (!value) return null
+                    return (
+                      <div key={field.key} className="flex gap-2">
+                        <dt className="shrink-0 font-medium text-muted-foreground">{field.label}:</dt>
+                        <dd className="min-w-0 text-card-foreground">{value}</dd>
+                      </div>
+                    )
+                  })}
+                </dl>
+              </section>
+
+              {settings.isJointMeeting ? (
+                <section className="min-w-0">
+                  <h3 className="mb-2 text-xs font-semibold text-muted-foreground">
+                    {settings.jointClubInfo.clubName?.trim() || "Partner Toastmasters Club"}
+                  </h3>
+                  <dl className="agenda-officer-list flex flex-col gap-1.5 text-sm">
+                    {OFFICER_FIELDS.map((field) => {
+                      const value = settings.jointClubInfo[field.key]
+                      if (!value) return null
+                      return (
+                        <div key={field.key} className="flex gap-2">
+                          <dt className="shrink-0 font-medium text-muted-foreground">{field.label}:</dt>
+                          <dd className="min-w-0 text-card-foreground">{value}</dd>
+                        </div>
+                      )
+                    })}
+                  </dl>
+                </section>
+              ) : null}
+            </div>
 
             <div className="mt-6 rounded-lg bg-secondary/60 p-4">
               <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-primary" style={displayFont}>

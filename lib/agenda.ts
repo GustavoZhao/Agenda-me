@@ -162,6 +162,17 @@ export type JointClubInfo = {
   area: string
   division: string
   district: string
+  president: string
+  vpe: string
+  vpm: string
+  vppr: string
+  secretary: string
+  treasurer: string
+  saa: string
+  ipp: string
+  mentors: string
+  sponsors: string
+  advisor: string
   vpmWechatQr: string
   vpmWhatsappQr: string
   vpmContactNote: string
@@ -192,7 +203,20 @@ export const CLUB_LOGO_SRC = "/toastmasters-logo.svg"
 export const CLUB_META = "Area K4, Division K, District 85, Club No. 28678559"
 
 // The Executive Committee roster fields, in display order, with their labels
-export const OFFICER_FIELDS: { key: keyof ClubInfo; label: string }[] = [
+export type OfficerFieldKey =
+  | "president"
+  | "vpe"
+  | "vpm"
+  | "vppr"
+  | "secretary"
+  | "treasurer"
+  | "saa"
+  | "ipp"
+  | "mentors"
+  | "sponsors"
+  | "advisor"
+
+export const OFFICER_FIELDS: { key: OfficerFieldKey; label: string }[] = [
   { key: "president", label: "President" },
   { key: "vpe", label: "VPE" },
   { key: "vpm", label: "VPM" },
@@ -266,6 +290,17 @@ export const DEFAULT_JOINT_CLUB_INFO: JointClubInfo = {
   area: "",
   division: "",
   district: "",
+  president: "",
+  vpe: "",
+  vpm: "",
+  vppr: "",
+  secretary: "",
+  treasurer: "",
+  saa: "",
+  ipp: "",
+  mentors: "",
+  sponsors: "",
+  advisor: "",
   vpmWechatQr: "",
   vpmWhatsappQr: "",
   vpmContactNote: "",
