@@ -887,6 +887,27 @@ function MeetingSettingsBlock({
                       ))}
                     </div>
                   </div>
+                  <div className="rounded-lg border border-border bg-background/70 p-4 sm:col-span-2">
+                    <h5 className="mb-3 text-sm font-semibold text-foreground">Partner Membership Information</h5>
+                    <div className="grid grid-cols-1 gap-4">
+                      <Field label="Membership Notes Title">
+                        <input
+                          className={inputClass}
+                          value={settings.jointClubInfo.participantNotesTitle}
+                          onChange={(event) => updateJointClubInfo({ participantNotesTitle: event.target.value })}
+                          placeholder="How to Become a Member"
+                        />
+                      </Field>
+                      <Field label="Membership Rules / Notes" hint="Line breaks and numbered or bulleted lists are supported.">
+                        <textarea
+                          className={`${inputClass} min-h-36 resize-y whitespace-pre-wrap`}
+                          value={settings.jointClubInfo.participantNotesBody}
+                          onChange={(event) => updateJointClubInfo({ participantNotesBody: event.target.value })}
+                          placeholder="Enter the partner club's membership criteria and next steps"
+                        />
+                      </Field>
+                    </div>
+                  </div>
                   <Field label="Contact Note">
                     <input className={inputClass} value={settings.jointClubInfo.vpmContactNote} onChange={(e) => updateJointClubInfo({ vpmContactNote: e.target.value })} placeholder="Membership contact details" />
                   </Field>

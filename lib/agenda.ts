@@ -173,6 +173,8 @@ export type JointClubInfo = {
   mentors: string
   sponsors: string
   advisor: string
+  participantNotesTitle: string
+  participantNotesBody: string
   vpmWechatQr: string
   vpmWhatsappQr: string
   vpmContactNote: string
@@ -301,6 +303,8 @@ export const DEFAULT_JOINT_CLUB_INFO: JointClubInfo = {
   mentors: "",
   sponsors: "",
   advisor: "",
+  participantNotesTitle: "How to Become a Member",
+  participantNotesBody: "",
   vpmWechatQr: "",
   vpmWhatsappQr: "",
   vpmContactNote: "",

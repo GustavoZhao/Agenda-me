@@ -449,10 +449,46 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
             </div>
 
             <div className="mt-6 rounded-lg bg-secondary/60 p-4">
-              <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-primary" style={displayFont}>
-                {participantNotesTitle}
-              </h2>
-              <NotesContent body={participantNotesBody} />
+              {settings.isJointMeeting ? (
+                <>
+                  <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-primary" style={displayFont}>
+                    Membership Information
+                  </h2>
+                  <div className="agenda-membership-groups grid gap-4 sm:grid-cols-2">
+                    <section className="min-w-0 rounded-md border border-border bg-background/60 p-3">
+                      <h3 className="text-sm font-semibold text-foreground">{clubName}</h3>
+                      <h4 className="mb-2 mt-1 text-xs font-semibold uppercase tracking-wide text-primary">
+                        {participantNotesTitle}
+                      </h4>
+                      {participantNotesBody ? (
+                        <NotesContent body={participantNotesBody} />
+                      ) : (
+                        <p className="text-sm text-muted-foreground">Membership information not provided.</p>
+                      )}
+                    </section>
+                    <section className="min-w-0 rounded-md border border-border bg-background/60 p-3">
+                      <h3 className="text-sm font-semibold text-foreground">
+                        {settings.jointClubInfo.clubName?.trim() || "Partner Toastmasters Club"}
+                      </h3>
+                      <h4 className="mb-2 mt-1 text-xs font-semibold uppercase tracking-wide text-primary">
+                        {settings.jointClubInfo.participantNotesTitle?.trim() || "How to Become a Member"}
+                      </h4>
+                      {settings.jointClubInfo.participantNotesBody?.trim() ? (
+                        <NotesContent body={settings.jointClubInfo.participantNotesBody} />
+                      ) : (
+                        <p className="text-sm text-muted-foreground">Membership information not provided.</p>
+                      )}
+                    </section>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-primary" style={displayFont}>
+                    {participantNotesTitle}
+                  </h2>
+                  <NotesContent body={participantNotesBody} />
+                </>
+              )}
             </div>
 
             {(clubInfo.vpmWechatQr || clubInfo.vpmWhatsappQr || clubInfo.vpmContactNote?.trim()) && (

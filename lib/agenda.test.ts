@@ -51,6 +51,7 @@ describe("anonymous agenda defaults", () => {
         clubName: "Global Speakers Club",
         meetingNumber: "88",
         president: "Partner President",
+        participantNotesBody: "1. Attend three meetings. 2. Give a mini-speech.",
       },
     })
     expect(joint.isJointMeeting).toBe(true)
@@ -59,6 +60,7 @@ describe("anonymous agenda defaults", () => {
       clubName: "Global Speakers Club",
       meetingNumber: "88",
       president: "Partner President",
+      participantNotesBody: "1. Attend three meetings. 2. Give a mini-speech.",
     })
   })
 
