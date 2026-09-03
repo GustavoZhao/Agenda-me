@@ -19,6 +19,7 @@ export type Session = {
   tableTopicsTheme?: string // Table Topics: session theme
   participantTimeLimit?: number // Table Topics: minutes allowed per participant
   evaluatedSessionId?: string // Individual Evaluation: prepared speech being evaluated
+  linkedRoleOverride?: boolean // Report/quiz role was manually changed after its default introduction sync
 }
 
 // Default green / yellow / red minute marks based on the session's max duration
@@ -405,6 +406,7 @@ export function makeSession(partial: LegacySession = {}): Session {
     tableTopicsTheme: partial.tableTopicsTheme ?? "",
     participantTimeLimit: partial.participantTimeLimit ?? 2,
     evaluatedSessionId: partial.evaluatedSessionId ?? "",
+    linkedRoleOverride: partial.linkedRoleOverride ?? false,
   }
 }
 
@@ -908,7 +910,7 @@ function synchronizeLinkedRoleSessions(sessions: Session[]): Session[] {
 
   return sessions.map((session) => {
     const source = sources.get(session.activity)
-    return source
+    return source && !session.linkedRoleOverride
       ? { ...session, presenter: source.presenter, title: source.title ?? "" }
       : session
   })
@@ -943,6 +945,7 @@ export function normalizeSettings(raw: Partial<AgendaSettings>): AgendaSettings 
       tableTopicsTheme: s.tableTopicsTheme ?? "",
       participantTimeLimit: s.participantTimeLimit ?? 2,
       evaluatedSessionId: s.evaluatedSessionId ?? "",
+      linkedRoleOverride: s.linkedRoleOverride ?? false,
     }
   })
 
@@ -1217,6 +1220,11 @@ const LEGACY_PATHWAY_BADGES: PathwayBadge[] = [
 ]
 
 const ALL_PATHWAY_BADGES: PathwayBadge[] = [...PATHWAY_BADGES, ...LEGACY_PATHWAY_BADGES]
+
+export const PATHWAY_TITLE_OPTIONS = ALL_PATHWAY_BADGES.map(({ pathway, abbr }) => ({
+  pathway,
+  abbr,
+}))
 
 export const TITLE_PRESET_OPTIONS: TitlePresetOption[] = [
   ...PATHWAY_BADGES.flatMap((item) =>

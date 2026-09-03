@@ -246,6 +246,30 @@ describe("meeting templates", () => {
     expect(harkmasterQuiz).toMatchObject({ presenter: "Harper Harkmaster", title: "DL2" })
   })
 
+  it("preserves a manually overridden linked report while keeping default synchronization", () => {
+    const sessions = createAgendaTemplateSessions("standard").map((session) => {
+      if (session.activity === "Introduction of the Timer") {
+        return { ...session, presenter: "Introduction Timer", title: "PM3" }
+      }
+      if (session.activity === "Timer's Report") {
+        return {
+          ...session,
+          presenter: "Report Timer",
+          title: "DL2",
+          linkedRoleOverride: true,
+        }
+      }
+      return session
+    })
+
+    const normalized = normalizeSettings({ sessions })
+    expect(normalized.sessions.find((session) => session.activity === "Timer's Report")).toMatchObject({
+      presenter: "Report Timer",
+      title: "DL2",
+      linkedRoleOverride: true,
+    })
+  })
+
   it("describes the speaker linked to an individual evaluation", () => {
     const sessions = createAgendaTemplateSessions("standard")
     const speech = sessions.find((session) => session.activity === "Prepared Speech")!

@@ -408,7 +408,7 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
             <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-primary" style={displayFont}>
               {settings.isJointMeeting ? "Executive Committees" : "Executive Committee"}
             </h2>
-            <div className={`agenda-committee-groups grid gap-5 ${settings.isJointMeeting ? "sm:grid-cols-2" : "grid-cols-1"}`}>
+            <div className="agenda-committee-groups grid grid-cols-1 gap-5">
               <section className="min-w-0">
                 {settings.isJointMeeting ? (
                   <h3 className="mb-2 text-xs font-semibold text-muted-foreground">{clubName}</h3>
@@ -454,7 +454,7 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
                   <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-primary" style={displayFont}>
                     Membership Information
                   </h2>
-                  <div className="agenda-membership-groups grid gap-4 sm:grid-cols-2">
+                  <div className="agenda-membership-groups grid grid-cols-1 gap-4">
                     <section className="min-w-0 rounded-md border border-border bg-background/60 p-3">
                       <h3 className="text-sm font-semibold text-foreground">{clubName}</h3>
                       <h4 className="mb-2 mt-1 text-xs font-semibold uppercase tracking-wide text-primary">

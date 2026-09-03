@@ -25,12 +25,12 @@ import {
   type MembershipCredentialEntry,
   normalizeCredentialTitle,
   OFFICER_FIELDS,
+  PATHWAY_TITLE_OPTIONS,
   patchSession,
   type Session,
   makeSession,
   TABLE_TOPICS_EVALUATION_ACTIVITY,
   TITLE_OTHER_OPTION,
-  TITLE_PRESET_OPTIONS,
   parseMembershipCredentialCsv,
   sortSessions,
   setMeetingSaa,
@@ -145,7 +145,7 @@ export function AgendaSettingsPanel({ settings, onChange, showClubInfo = true }:
           : "Timer's Report"
       update({
         sessions: updatedSessions.map((session) =>
-          session.activity === reportActivity
+          session.activity === reportActivity && !session.linkedRoleOverride
             ? { ...session, presenter: updatedSession.presenter, title: updatedSession.title }
             : session
         ),
@@ -257,6 +257,7 @@ export function AgendaSettingsPanel({ settings, onChange, showClubInfo = true }:
     updateSession(sessionId, {
       activity: nextActivity,
       presenter: linkedSource?.presenter ?? getDefaultPresenter(nextActivity, current.presenter),
+      linkedRoleOverride: false,
       ...(linkedSource ? { title: linkedSource.title ?? "" } : {}),
     })
   }
@@ -349,7 +350,7 @@ export function AgendaSettingsPanel({ settings, onChange, showClubInfo = true }:
           </div>
         </div>
 
-        {sessionsOpen ? <div id="agenda-session-list" className="flex flex-col px-5 pb-5">
+        {sessionsOpen ? <div id="agenda-session-list" className="flex flex-col px-3 pb-4 sm:px-4">
           {settings.sessions.length > 0 && (
             <RowGap
               onAdd={() => insertSession(0)}
@@ -370,7 +371,7 @@ export function AgendaSettingsPanel({ settings, onChange, showClubInfo = true }:
               <div
                 className={
                   group.divider
-                    ? "space-y-0 rounded-b-lg border border-t-0 border-primary/20 bg-muted/35 p-2"
+                    ? "space-y-0 rounded-b-lg border border-t-0 border-primary/20 bg-muted/35 p-1.5"
                     : "space-y-0"
                 }
               >
@@ -381,13 +382,13 @@ export function AgendaSettingsPanel({ settings, onChange, showClubInfo = true }:
                   return (
                     <div key={session.id}>
                       <div
-                        className={`group relative rounded-lg border p-3 transition-colors ${
+                        className={`group relative rounded-lg border p-2 transition-colors ${
                           group.divider
                             ? "border-border/60 bg-background/90"
                             : "border-border bg-background"
                         } ${isDragging ? "border-primary opacity-50" : ""}`}
                       >
-                        <div className="flex items-start gap-2">
+                        <div className="flex items-start gap-1.5">
                           <button
                             type="button"
                             draggable
@@ -954,11 +955,11 @@ function SessionFields({
 }) {
   const inSection = sectionKey !== "general"
   const preparedSpeechOptions = allSessions.filter((candidate) => candidate.activity === "Prepared Speech")
-  const isLinkedReport =
+  const isIntroductionLinkedReport =
     session.activity === "Grammarian's Report" ||
     session.activity === HARKMASTER_QUIZ_ACTIVITY ||
-    session.activity === "Timer's Report" ||
-    session.activity === BALLOT_COLLECTION_ACTIVITY
+    session.activity === "Timer's Report"
+  const isMeetingSaaLocked = session.activity === BALLOT_COLLECTION_ACTIVITY
 
   return (
     <>
@@ -971,7 +972,7 @@ function SessionFields({
       />
 
       {sectionKey === "prepared-speeches" && (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1.05fr)_minmax(0,1.2fr)_minmax(0,1.35fr)]">
           <input
             className={`${inputClass} min-w-0`}
             placeholder="Speech Title"
@@ -1067,7 +1068,7 @@ function SessionFields({
       )}
 
       {sectionKey === "general" && (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1.15fr)_minmax(0,1.35fr)_auto]">
           <input
             className={`${inputClass} min-w-0`}
             placeholder="Presenter / Role"
@@ -1080,7 +1081,7 @@ function SessionFields({
       )}
 
       {sectionKey === "break" && (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)_minmax(0,1.35fr)]">
           <input
             className={`${inputClass} min-w-0`}
             placeholder="Break title"
@@ -1103,9 +1104,12 @@ function SessionFields({
             className={`${inputClass} min-w-0`}
             placeholder="Presenter / Role"
             value={session.presenter}
-            onChange={(e) => onUpdate({ presenter: e.target.value })}
-            disabled={isLinkedReport}
-            title={isLinkedReport ? "Automatically synchronized with the corresponding meeting role." : undefined}
+            onChange={(e) => onUpdate({
+              presenter: e.target.value,
+              ...(isIntroductionLinkedReport ? { linkedRoleOverride: true } : {}),
+            })}
+            disabled={isMeetingSaaLocked}
+            title={isMeetingSaaLocked ? "Automatically synchronized with the Meeting SAA." : undefined}
           />
           {session.activity === "Individual Evaluation" ? (
             <select
@@ -1125,8 +1129,11 @@ function SessionFields({
           ) : null}
           <TitleField
             value={session.title ?? ""}
-            onChange={(title) => onUpdate({ title })}
-            disabled={isLinkedReport}
+            onChange={(title) => onUpdate({
+              title,
+              ...(isIntroductionLinkedReport ? { linkedRoleOverride: true } : {}),
+            })}
+            disabled={isMeetingSaaLocked}
           />
         </div>
       )}
@@ -1146,48 +1153,83 @@ function TitleField({
   disabled?: boolean
 }) {
   const trimmed = value.trim()
-  const matchedPreset = TITLE_PRESET_OPTIONS.find((option) => option.value.toLowerCase() === trimmed.toLowerCase()) ?? null
-  const isCustomTitle = !!trimmed && !matchedPreset
+  const codeMatch = trimmed.toUpperCase().match(/^([A-Z]{2})([1-5])$/)
+  const pathwayByCode = codeMatch
+    ? PATHWAY_TITLE_OPTIONS.find((option) => option.abbr === codeMatch[1]) ?? null
+    : null
+  const pathwayByName = PATHWAY_TITLE_OPTIONS.find(
+    (option) => option.pathway.toLowerCase() === trimmed.toLowerCase(),
+  ) ?? null
+  const selectedPathway = pathwayByCode ?? pathwayByName
+  const selectedLevel = pathwayByCode && codeMatch ? codeMatch[2] : ""
+  const isDtm = trimmed.toUpperCase() === "DTM"
+  const isCustomTitle = !!trimmed && !selectedPathway && !isDtm
   const [forceOtherMode, setForceOtherMode] = useState(isCustomTitle)
 
   useEffect(() => {
     setForceOtherMode(isCustomTitle)
   }, [isCustomTitle])
 
-  const selectValue = forceOtherMode ? TITLE_OTHER_OPTION : !trimmed ? "" : matchedPreset?.value ?? TITLE_OTHER_OPTION
+  const pathwayValue = forceOtherMode
+    ? TITLE_OTHER_OPTION
+    : isDtm
+      ? "DTM"
+      : selectedPathway?.abbr ?? ""
   const showCustomInput = forceOtherMode || isCustomTitle
 
   return (
     <div className="flex min-w-0 flex-col gap-2">
-      <select
-        className={`${inputClass} min-w-0`}
-        value={selectValue}
-        disabled={disabled}
-        title={disabled ? "Automatically synchronized with the corresponding introduction role." : undefined}
-        onChange={(e) => {
-          const next = e.target.value
-          if (next === "") {
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(5.25rem,0.55fr)] gap-2">
+        <select
+          className={`${inputClass} min-w-0`}
+          value={pathwayValue}
+          disabled={disabled}
+          aria-label="Pathway"
+          title={disabled ? "Automatically synchronized with the corresponding introduction role." : undefined}
+          onChange={(event) => {
+            const next = event.target.value
+            if (next === "") {
+              setForceOtherMode(false)
+              onChange("")
+              return
+            }
+            if (next === TITLE_OTHER_OPTION) {
+              setForceOtherMode(true)
+              return
+            }
             setForceOtherMode(false)
-            onChange("")
-            return
-          }
-          if (next === TITLE_OTHER_OPTION) {
-            setForceOtherMode(true)
-            if (matchedPreset) onChange("")
-            return
-          }
-          setForceOtherMode(false)
-          onChange(next)
-        }}
-      >
-        <option value="">No title</option>
-        {TITLE_PRESET_OPTIONS.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-        <option value={TITLE_OTHER_OPTION}>Other</option>
-      </select>
+            if (next === "DTM") {
+              onChange("DTM")
+              return
+            }
+            const pathway = PATHWAY_TITLE_OPTIONS.find((option) => option.abbr === next)
+            if (pathway) onChange(selectedLevel ? `${pathway.abbr}${selectedLevel}` : pathway.pathway)
+          }}
+        >
+          <option value="">Pathway</option>
+          {PATHWAY_TITLE_OPTIONS.map((option) => (
+            <option key={option.abbr} value={option.abbr}>{option.pathway}</option>
+          ))}
+          <option value="DTM">DTM</option>
+          <option value={TITLE_OTHER_OPTION}>Other</option>
+        </select>
+        <select
+          className={`${inputClass} min-w-0`}
+          value={selectedLevel}
+          disabled={disabled || !selectedPathway}
+          aria-label="Level"
+          onChange={(event) => {
+            if (!selectedPathway) return
+            const nextLevel = event.target.value
+            onChange(nextLevel ? `${selectedPathway.abbr}${nextLevel}` : selectedPathway.pathway)
+          }}
+        >
+          <option value="">Level</option>
+          {[1, 2, 3, 4, 5].map((level) => (
+            <option key={level} value={level}>L{level}</option>
+          ))}
+        </select>
+      </div>
       {showCustomInput && (
         <input
           className={`${inputClass} min-w-0`}
@@ -1524,7 +1566,7 @@ function JointQrInput({
 }
 
 const inputClass =
-  "rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring/40"
+  "rounded-md border border-input bg-background px-2.5 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring/40"
 
 function Field({
   label,
