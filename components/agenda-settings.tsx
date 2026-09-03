@@ -1068,7 +1068,7 @@ function SessionFields({
       )}
 
       {sectionKey === "general" && (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1.15fr)_minmax(0,1.35fr)_auto]">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1.15fr)_minmax(0,1.35fr)]">
           <input
             className={`${inputClass} min-w-0`}
             placeholder="Presenter / Role"
@@ -1076,7 +1076,6 @@ function SessionFields({
             onChange={(e) => onUpdate({ presenter: e.target.value })}
           />
           <TitleField value={session.title ?? ""} onChange={(title) => onUpdate({ title })} />
-          <BufferField session={session} onUpdate={onUpdate} inline />
         </div>
       )}
 
@@ -1138,7 +1137,7 @@ function SessionFields({
         </div>
       )}
 
-      <DurationRangeFields session={session} onUpdate={onUpdate} showBuffer={sectionKey !== "general"} />
+      <DurationRangeFields session={session} onUpdate={onUpdate} />
     </>
   )
 }
@@ -1179,7 +1178,7 @@ function TitleField({
 
   return (
     <div className="flex min-w-0 flex-col gap-2">
-      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(5.25rem,0.55fr)] gap-2">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_4.75rem] gap-2">
         <select
           className={`${inputClass} min-w-0`}
           value={pathwayValue}
@@ -1188,7 +1187,7 @@ function TitleField({
           title={disabled ? "Automatically synchronized with the corresponding introduction role." : undefined}
           onChange={(event) => {
             const next = event.target.value
-            if (next === "") {
+            if (next === "__none__") {
               setForceOtherMode(false)
               onChange("")
               return
@@ -1206,7 +1205,8 @@ function TitleField({
             if (pathway) onChange(selectedLevel ? `${pathway.abbr}${selectedLevel}` : pathway.pathway)
           }}
         >
-          <option value="">Pathway</option>
+          <option value="" disabled>Pathway</option>
+          <option value="__none__">No title</option>
           {PATHWAY_TITLE_OPTIONS.map((option) => (
             <option key={option.abbr} value={option.abbr}>{option.pathway}</option>
           ))}
@@ -1221,10 +1221,11 @@ function TitleField({
           onChange={(event) => {
             if (!selectedPathway) return
             const nextLevel = event.target.value
-            onChange(nextLevel ? `${selectedPathway.abbr}${nextLevel}` : selectedPathway.pathway)
+            onChange(nextLevel === "__none__" ? selectedPathway.pathway : `${selectedPathway.abbr}${nextLevel}`)
           }}
         >
-          <option value="">Level</option>
+          <option value="" disabled>Level</option>
+          <option value="__none__">None</option>
           {[1, 2, 3, 4, 5].map((level) => (
             <option key={level} value={level}>L{level}</option>
           ))}
@@ -1291,31 +1292,30 @@ function ActivitySelector({
 function DurationRangeFields({
   session,
   onUpdate,
-  showBuffer = true,
-  inline = false,
 }: {
   session: Session
   onUpdate: (partial: Partial<Session>) => void
-  showBuffer?: boolean
-  inline?: boolean
 }) {
-  const durationFields = (
+  return (
     <div className="flex flex-col gap-2">
-      <label className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-        <span className="shrink-0 font-medium text-foreground">Duration</span>
-        <input
-          type="number"
-          min={0}
-          step={0.5}
-          className={`${inputClass} w-16`}
-          value={session.durationMax}
-          onChange={(e) => {
-            const nextMax = Math.max(0, Number(e.target.value) || 0)
-            onUpdate({ durationMax: nextMax })
-          }}
-        />
-        <span>min</span>
-      </label>
+      <div className="flex items-center justify-between gap-4">
+        <label className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
+          <span className="shrink-0 font-medium text-foreground">Duration</span>
+          <input
+            type="number"
+            min={0}
+            step={0.5}
+            className={`${inputClass} w-16`}
+            value={session.durationMax}
+            onChange={(e) => {
+              const nextMax = Math.max(0, Number(e.target.value) || 0)
+              onUpdate({ durationMax: nextMax })
+            }}
+          />
+          <span>min</span>
+        </label>
+        <BufferField session={session} onUpdate={onUpdate} inline />
+      </div>
 
       <div className="flex flex-wrap items-center gap-3">
         <TimerThresholdInput
@@ -1337,17 +1337,6 @@ function DurationRangeFields({
           onChange={(timerRed) => onUpdate({ timerRed })}
         />
       </div>
-    </div>
-  )
-
-  if (!showBuffer) {
-    return inline ? durationFields : <div>{durationFields}</div>
-  }
-
-  return (
-    <div className={`flex flex-col gap-2 ${inline ? "" : "sm:flex-row sm:items-end sm:justify-between"}`}>
-      <div className="min-w-0 flex-1">{durationFields}</div>
-      <BufferField session={session} onUpdate={onUpdate} inline />
     </div>
   )
 }
