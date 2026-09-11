@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  AH_COUNTER_REPORT_ACTIVITY,
   applyAgendaTemplateImport,
   BALLOT_COLLECTION_ACTIVITY,
   BOOK_CLUB_ACTIVITY,
@@ -10,8 +11,10 @@ import {
   getIndividualEvaluationLabel,
   getPresetTitleBadge,
   HARKMASTER_QUIZ_ACTIVITY,
+  INTRODUCTION_OF_AH_COUNTER_ACTIVITY,
   INTRODUCTION_OF_HARKMASTER_ACTIVITY,
   JOKE_MASTER_ACTIVITY,
+  KEYNOTE_SPEECH_ACTIVITY,
   ACTIVITY_OPTIONS,
   CLUB_MISSION,
   DEFAULT_SETTINGS,
@@ -20,6 +23,8 @@ import {
   normalizeSettings,
   resetMeetingPreservingClub,
   setMeetingSaa,
+  TABLE_TOPICS_EVALUATION_ACTIVITY,
+  WORKSHOP_ACTIVITY,
 } from "./agenda"
 
 describe("anonymous agenda defaults", () => {
@@ -175,16 +180,22 @@ describe("meeting templates", () => {
   })
 
   it.each(["standard", "book-club", "speechathon"] as const)(
-    "adds the Harkmaster and ballot sequence to the %s template",
+    "adds the language roles, Harkmaster, and ballot sequence to the %s template",
     (template) => {
       const sessions = createAgendaTemplateSessions(template)
       const activities = sessions.map((session) => session.activity)
 
       expect(activities.indexOf(INTRODUCTION_OF_HARKMASTER_ACTIVITY)).toBe(
+        activities.indexOf(INTRODUCTION_OF_AH_COUNTER_ACTIVITY) + 1
+      )
+      expect(activities.indexOf(INTRODUCTION_OF_AH_COUNTER_ACTIVITY)).toBe(
         activities.indexOf("Introduction of the Grammarian") + 1
       )
-      expect(activities.indexOf(HARKMASTER_QUIZ_ACTIVITY)).toBe(
+      expect(activities.indexOf(AH_COUNTER_REPORT_ACTIVITY)).toBe(
         activities.indexOf("Grammarian's Report") + 1
+      )
+      expect(activities.indexOf(HARKMASTER_QUIZ_ACTIVITY)).toBe(
+        activities.indexOf(AH_COUNTER_REPORT_ACTIVITY) + 1
       )
       expect(activities.indexOf(BALLOT_COLLECTION_ACTIVITY)).toBe(
         activities.indexOf("Timer's Report") + 1
@@ -192,8 +203,30 @@ describe("meeting templates", () => {
       const ballotCollection = sessions.find((session) => session.activity === BALLOT_COLLECTION_ACTIVITY)
       expect(ballotCollection?.durationMax).toBe(2)
       expect(ballotCollection?.presenter).toBe("Meeting SAA")
+
+      const evaluations = activities.filter((activity) => [
+        TABLE_TOPICS_EVALUATION_ACTIVITY,
+        "Individual Evaluation",
+        "Grammarian's Report",
+        AH_COUNTER_REPORT_ACTIVITY,
+        "Timer's Report",
+        "General Evaluation",
+      ].includes(activity))
+      expect(evaluations).toEqual([
+        ...(template === "standard" ? [TABLE_TOPICS_EVALUATION_ACTIVITY] : []),
+        ...Array(template === "speechathon" ? 5 : template === "book-club" ? 2 : 3).fill("Individual Evaluation"),
+        "Grammarian's Report",
+        AH_COUNTER_REPORT_ACTIVITY,
+        "Timer's Report",
+        "General Evaluation",
+      ])
     }
   )
+
+  it("offers Workshop and Keynote Speech as special presentation sessions", () => {
+    expect(ACTIVITY_OPTIONS).toContain(WORKSHOP_ACTIVITY)
+    expect(ACTIVITY_OPTIONS).toContain(KEYNOTE_SPEECH_ACTIVITY)
+  })
 
   it("synchronizes ballot collection with the meeting SAA", () => {
     const settings = {
@@ -232,7 +265,14 @@ describe("meeting templates", () => {
       if (session.activity === INTRODUCTION_OF_HARKMASTER_ACTIVITY) {
         return { ...session, presenter: "Harper Harkmaster", title: "DL2" }
       }
-      if (session.activity === "Timer's Report" || session.activity === HARKMASTER_QUIZ_ACTIVITY) {
+      if (session.activity === INTRODUCTION_OF_AH_COUNTER_ACTIVITY) {
+        return { ...session, presenter: "Avery Ah-Counter", title: "EH4" }
+      }
+      if (
+        session.activity === "Timer's Report" ||
+        session.activity === HARKMASTER_QUIZ_ACTIVITY ||
+        session.activity === AH_COUNTER_REPORT_ACTIVITY
+      ) {
         return { ...session, presenter: "Stale role", title: "" }
       }
       return session
@@ -241,9 +281,11 @@ describe("meeting templates", () => {
     const normalized = normalizeSettings({ sessions })
     const timerReport = normalized.sessions.find((session) => session.activity === "Timer's Report")
     const harkmasterQuiz = normalized.sessions.find((session) => session.activity === HARKMASTER_QUIZ_ACTIVITY)
+    const ahCounterReport = normalized.sessions.find((session) => session.activity === AH_COUNTER_REPORT_ACTIVITY)
 
     expect(timerReport).toMatchObject({ presenter: "Taylor Timer", title: "PM3" })
     expect(harkmasterQuiz).toMatchObject({ presenter: "Harper Harkmaster", title: "DL2" })
+    expect(ahCounterReport).toMatchObject({ presenter: "Avery Ah-Counter", title: "EH4" })
   })
 
   it("preserves a manually overridden linked report while keeping default synchronization", () => {

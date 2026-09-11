@@ -4,6 +4,7 @@ import type React from "react"
 import { useEffect, useState } from "react"
 import {
   ACTIVITY_OPTIONS,
+  AH_COUNTER_REPORT_ACTIVITY,
   BALLOT_COLLECTION_ACTIVITY,
   BOOK_CLUB_ACTIVITY,
   BOOK_CLUB_CLOSING_REFLECTION_ACTIVITY,
@@ -17,6 +18,7 @@ import {
   type JointClubInfo,
   findCredentialForMemberName,
   HARKMASTER_QUIZ_ACTIVITY,
+  INTRODUCTION_OF_AH_COUNTER_ACTIVITY,
   INTRODUCTION_OF_HARKMASTER_ACTIVITY,
   JOKE_MASTER_ACTIVITY,
   createAgendaTemplateSessions,
@@ -135,14 +137,17 @@ export function AgendaSettingsPanel({ settings, onChange, showClubInfo = true }:
       updatedSession &&
       (nextPartial.presenter !== undefined || nextPartial.title !== undefined) &&
       (updatedSession.activity === "Introduction of the Grammarian" ||
+        updatedSession.activity === INTRODUCTION_OF_AH_COUNTER_ACTIVITY ||
         updatedSession.activity === "Introduction of the Timer" ||
         updatedSession.activity === INTRODUCTION_OF_HARKMASTER_ACTIVITY)
     ) {
       const reportActivity = updatedSession.activity === "Introduction of the Grammarian"
         ? "Grammarian's Report"
-        : updatedSession.activity === INTRODUCTION_OF_HARKMASTER_ACTIVITY
-          ? HARKMASTER_QUIZ_ACTIVITY
-          : "Timer's Report"
+        : updatedSession.activity === INTRODUCTION_OF_AH_COUNTER_ACTIVITY
+          ? AH_COUNTER_REPORT_ACTIVITY
+          : updatedSession.activity === INTRODUCTION_OF_HARKMASTER_ACTIVITY
+            ? HARKMASTER_QUIZ_ACTIVITY
+            : "Timer's Report"
       update({
         sessions: updatedSessions.map((session) =>
           session.activity === reportActivity && !session.linkedRoleOverride
@@ -160,6 +165,8 @@ export function AgendaSettingsPanel({ settings, onChange, showClubInfo = true }:
     if (activity === JOKE_MASTER_ACTIVITY) return currentPresenter || "Joke Master"
     if (activity === "Introduction of the Grammarian") return currentPresenter || "Grammarian"
     if (activity === "Grammarian's Report") return currentPresenter || "Grammarian"
+    if (activity === INTRODUCTION_OF_AH_COUNTER_ACTIVITY) return currentPresenter || "Ah-Counter"
+    if (activity === AH_COUNTER_REPORT_ACTIVITY) return currentPresenter || "Ah-Counter"
     if (activity === "Introduction of the Timer") return currentPresenter || "Timer"
     if (activity === "Timer's Report") return currentPresenter || "Timer"
     if (activity === INTRODUCTION_OF_HARKMASTER_ACTIVITY) return currentPresenter || "Harkmaster"
@@ -245,11 +252,13 @@ export function AgendaSettingsPanel({ settings, onChange, showClubInfo = true }:
 
     const linkedSourceActivity = nextActivity === "Grammarian's Report"
       ? "Introduction of the Grammarian"
-      : nextActivity === "Timer's Report"
-        ? "Introduction of the Timer"
-        : nextActivity === HARKMASTER_QUIZ_ACTIVITY
-          ? INTRODUCTION_OF_HARKMASTER_ACTIVITY
-          : null
+      : nextActivity === AH_COUNTER_REPORT_ACTIVITY
+        ? INTRODUCTION_OF_AH_COUNTER_ACTIVITY
+        : nextActivity === "Timer's Report"
+          ? "Introduction of the Timer"
+          : nextActivity === HARKMASTER_QUIZ_ACTIVITY
+            ? INTRODUCTION_OF_HARKMASTER_ACTIVITY
+            : null
     const linkedSource = linkedSourceActivity
       ? settings.sessions.find((session) => session.activity === linkedSourceActivity)
       : null
@@ -957,6 +966,7 @@ function SessionFields({
   const preparedSpeechOptions = allSessions.filter((candidate) => candidate.activity === "Prepared Speech")
   const isIntroductionLinkedReport =
     session.activity === "Grammarian's Report" ||
+    session.activity === AH_COUNTER_REPORT_ACTIVITY ||
     session.activity === HARKMASTER_QUIZ_ACTIVITY ||
     session.activity === "Timer's Report"
   const isMeetingSaaLocked = session.activity === BALLOT_COLLECTION_ACTIVITY
@@ -982,6 +992,24 @@ function SessionFields({
           <input
             className={`${inputClass} min-w-0`}
             placeholder="Speaker"
+            value={session.presenter}
+            onChange={(e) => onUpdate({ presenter: e.target.value })}
+          />
+          <TitleField value={session.title ?? ""} onChange={(title) => onUpdate({ title })} />
+        </div>
+      )}
+
+      {sectionKey === "special-presentations" && (
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,1.35fr)]">
+          <input
+            className={`${inputClass} min-w-0`}
+            placeholder={`${session.activity} title`}
+            value={session.speechTitle ?? ""}
+            onChange={(e) => onUpdate({ speechTitle: e.target.value })}
+          />
+          <input
+            className={`${inputClass} min-w-0`}
+            placeholder="Presenter"
             value={session.presenter}
             onChange={(e) => onUpdate({ presenter: e.target.value })}
           />

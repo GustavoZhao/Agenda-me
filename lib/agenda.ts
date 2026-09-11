@@ -44,6 +44,7 @@ export function formatTimerMinute(value: number): string {
 
 // Visual section dividers in the Sessions panel
 export const SESSION_SECTION_LABELS: Record<string, string> = {
+  "special-presentations": "Special Presentations",
   "prepared-speeches": "Prepared Speeches",
   "table-topics": "Table Topics",
   "book-club": "BRICS+ Book Club",
@@ -63,11 +64,16 @@ export const BOOK_CLUB_MINI_FEEDBACK_ACTIVITY = "Book Club Mini Feedback"
 export const BOOK_CLUB_GRAMMARIAN_REPORT_ACTIVITY = "Grammarian's Report on Table Topics"
 export const BOOK_CLUB_CLOSING_REFLECTION_ACTIVITY = "Book Club Closing Reflection"
 export const TABLE_TOPICS_EVALUATION_ACTIVITY = "Table Topics Evaluation"
+export const INTRODUCTION_OF_AH_COUNTER_ACTIVITY = "Introduction of the Ah-Counter"
+export const AH_COUNTER_REPORT_ACTIVITY = "Ah-Counter's Report"
 export const INTRODUCTION_OF_HARKMASTER_ACTIVITY = "Introduction of the Harkmaster"
 export const HARKMASTER_QUIZ_ACTIVITY = "Quiz of the Harkmaster"
 export const BALLOT_COLLECTION_ACTIVITY = "Ballot Collection"
+export const WORKSHOP_ACTIVITY = "Workshop"
+export const KEYNOTE_SPEECH_ACTIVITY = "Keynote Speech"
 
 export function getSessionSection(activity: string): string | null {
+  if (activity === WORKSHOP_ACTIVITY || activity === KEYNOTE_SPEECH_ACTIVITY) return "special-presentations"
   if (activity === "Prepared Speech") return "prepared-speeches"
   if (activity === "Table Topics") return "table-topics"
   if (
@@ -86,6 +92,7 @@ export function getSessionSection(activity: string): string | null {
     activity === TABLE_TOPICS_EVALUATION_ACTIVITY ||
     activity === "General Evaluation" ||
     activity === "Grammarian's Report" ||
+    activity === AH_COUNTER_REPORT_ACTIVITY ||
     activity === HARKMASTER_QUIZ_ACTIVITY ||
     activity === "Timer's Report" ||
     activity === BALLOT_COLLECTION_ACTIVITY
@@ -318,7 +325,10 @@ export const ACTIVITY_OPTIONS = [
   "Introduction of the Meeting",
   "Introduction of the Timer",
   "Introduction of the Grammarian",
+  INTRODUCTION_OF_AH_COUNTER_ACTIVITY,
   INTRODUCTION_OF_HARKMASTER_ACTIVITY,
+  WORKSHOP_ACTIVITY,
+  KEYNOTE_SPEECH_ACTIVITY,
   "Table Topics",
   BOOK_CLUB_ACTIVITY,
   BOOK_CLUB_DISCUSSION_ACTIVITY,
@@ -332,6 +342,7 @@ export const ACTIVITY_OPTIONS = [
   TABLE_TOPICS_EVALUATION_ACTIVITY,
   "General Evaluation",
   "Grammarian's Report",
+  AH_COUNTER_REPORT_ACTIVITY,
   HARKMASTER_QUIZ_ACTIVITY,
   "Timer's Report",
   BALLOT_COLLECTION_ACTIVITY,
@@ -345,7 +356,10 @@ export const CANONICAL_ORDER = [
   "Introduction of the Meeting",
   "Introduction of the Timer",
   "Introduction of the Grammarian",
+  INTRODUCTION_OF_AH_COUNTER_ACTIVITY,
   INTRODUCTION_OF_HARKMASTER_ACTIVITY,
+  WORKSHOP_ACTIVITY,
+  KEYNOTE_SPEECH_ACTIVITY,
   "Prepared Speech",
   BREAK_ACTIVITY,
   BOOK_CLUB_DISCUSSION_ACTIVITY,
@@ -354,13 +368,14 @@ export const CANONICAL_ORDER = [
   BOOK_CLUB_GRAMMARIAN_REPORT_ACTIVITY,
   BOOK_CLUB_CLOSING_REFLECTION_ACTIVITY,
   "Table Topics",
-  "Individual Evaluation",
   TABLE_TOPICS_EVALUATION_ACTIVITY,
-  "General Evaluation",
+  "Individual Evaluation",
   "Grammarian's Report",
+  AH_COUNTER_REPORT_ACTIVITY,
   HARKMASTER_QUIZ_ACTIVITY,
   "Timer's Report",
   BALLOT_COLLECTION_ACTIVITY,
+  "General Evaluation",
   "Closing and Awards",
 ]
 
@@ -458,6 +473,7 @@ function openingSessions(): Session[] {
     makeSession({ activity: "Introduction of the Meeting", presenter: "Toastmaster of the Meeting (ToM)", durationMax: 5 }),
     makeSession({ activity: "Introduction of the Timer", presenter: "Timer", durationMax: 2 }),
     makeSession({ activity: "Introduction of the Grammarian", presenter: "Grammarian", durationMax: 3 }),
+    makeSession({ activity: INTRODUCTION_OF_AH_COUNTER_ACTIVITY, presenter: "Ah-Counter", durationMax: 2 }),
     makeSession({ activity: INTRODUCTION_OF_HARKMASTER_ACTIVITY, presenter: "Harkmaster", durationMax: 2 }),
   ]
 }
@@ -497,11 +513,12 @@ function breakSession(meetingSaa: string): Session {
 
 function evaluationReports(meetingSaa: string): Session[] {
   return [
-    makeSession({ activity: "General Evaluation", presenter: "General Evaluator", durationMin: 5, durationMax: 7 }),
     makeSession({ activity: "Grammarian's Report", presenter: "Grammarian", durationMax: 3 }),
+    makeSession({ activity: AH_COUNTER_REPORT_ACTIVITY, presenter: "Ah-Counter", durationMax: 3 }),
     makeSession({ activity: HARKMASTER_QUIZ_ACTIVITY, presenter: "Harkmaster", durationMax: 3 }),
     makeSession({ activity: "Timer's Report", presenter: "Timer", durationMax: 3 }),
     makeSession({ activity: BALLOT_COLLECTION_ACTIVITY, presenter: meetingSaa || "Meeting SAA", durationMax: 2 }),
+    makeSession({ activity: "General Evaluation", presenter: "General Evaluator", durationMin: 5, durationMax: 7 }),
     makeSession({ activity: "Closing and Awards", presenter: "President", durationMax: 5, buffer: 0 }),
   ]
 }
@@ -553,8 +570,8 @@ export function createAgendaTemplateSessions(
     ...speeches,
     ...tableTopics,
     breakSession(meetingSaa),
-    ...individualEvaluations(speeches),
     ...tableTopicsEvaluation,
+    ...individualEvaluations(speeches),
     ...evaluationReports(meetingSaa),
   ]
 }
@@ -576,6 +593,7 @@ export const DEFAULT_SETTINGS: AgendaSettings = {
     makeSession({ activity: "Introduction of the Meeting", presenter: "Toastmaster of the Meeting (ToM)", durationMin: 5, durationMax: 5 }),
     makeSession({ activity: "Introduction of the Timer", presenter: "Timer", durationMin: 2, durationMax: 2 }),
     makeSession({ activity: "Introduction of the Grammarian", presenter: "Grammarian", durationMin: 3, durationMax: 3 }),
+    makeSession({ activity: INTRODUCTION_OF_AH_COUNTER_ACTIVITY, presenter: "Ah-Counter", durationMin: 2, durationMax: 2 }),
     makeSession({ activity: INTRODUCTION_OF_HARKMASTER_ACTIVITY, presenter: "Harkmaster", durationMin: 2, durationMax: 2 }),
     makeSession({
       activity: BOOK_CLUB_DISCUSSION_ACTIVITY,
@@ -646,15 +664,16 @@ export const DEFAULT_SETTINGS: AgendaSettings = {
       durationMax: 10,
       buffer: 2,
     }),
+    makeSession({ activity: TABLE_TOPICS_EVALUATION_ACTIVITY, presenter: "Table Topics Evaluator", durationMin: 3, durationMax: 4 }),
     makeSession({ activity: "Individual Evaluation", presenter: "Evaluator 1", durationMin: 3, durationMax: 3 }),
     makeSession({ activity: "Individual Evaluation", presenter: "Evaluator 2", durationMin: 3, durationMax: 3 }),
     makeSession({ activity: "Individual Evaluation", presenter: "Evaluator 3", durationMin: 3, durationMax: 3 }),
-    makeSession({ activity: TABLE_TOPICS_EVALUATION_ACTIVITY, presenter: "Table Topics Evaluator", durationMin: 3, durationMax: 4 }),
-    makeSession({ activity: "General Evaluation", presenter: "General Evaluator", durationMin: 5, durationMax: 7 }),
     makeSession({ activity: "Grammarian's Report", presenter: "Grammarian", durationMin: 3, durationMax: 3 }),
+    makeSession({ activity: AH_COUNTER_REPORT_ACTIVITY, presenter: "Ah-Counter", durationMin: 3, durationMax: 3 }),
     makeSession({ activity: HARKMASTER_QUIZ_ACTIVITY, presenter: "Harkmaster", durationMin: 3, durationMax: 3 }),
     makeSession({ activity: "Timer's Report", presenter: "Timer", durationMin: 3, durationMax: 3 }),
     makeSession({ activity: BALLOT_COLLECTION_ACTIVITY, presenter: "Meeting SAA", durationMin: 2, durationMax: 2 }),
+    makeSession({ activity: "General Evaluation", presenter: "General Evaluator", durationMin: 5, durationMax: 7 }),
     makeSession({
       activity: "Closing and Awards",
       presenter: "President",
@@ -692,6 +711,9 @@ export type PreviewBlock =
 
 // Session column label inside a grouped section (omit repeated section title)
 export function getSectionRowLabel(row: ComputedRow, sectionKey: string | null): string {
+  if (sectionKey === "special-presentations") {
+    return row.speechTitle?.trim() || row.activity || "(Untitled)"
+  }
   if (sectionKey === "prepared-speeches") {
     return row.speechTitle?.trim() || "(Untitled)"
   }
@@ -719,6 +741,9 @@ export function getSectionRowLabel(row: ComputedRow, sectionKey: string | null):
 }
 
 export function getSectionRoleLabel(row: ComputedRow, sectionKey: string | null): string {
+  if (sectionKey === "special-presentations") {
+    return row.presenter?.trim() || "—"
+  }
   if (sectionKey === "prepared-speeches") {
     return row.presenter?.trim() || "—"
   }
@@ -896,6 +921,7 @@ type LegacyStoredSession = Partial<Session> & { duration?: number }
 
 const LINKED_ROLE_ACTIVITY_PAIRS = [
   ["Introduction of the Grammarian", "Grammarian's Report"],
+  [INTRODUCTION_OF_AH_COUNTER_ACTIVITY, AH_COUNTER_REPORT_ACTIVITY],
   ["Introduction of the Timer", "Timer's Report"],
   [INTRODUCTION_OF_HARKMASTER_ACTIVITY, HARKMASTER_QUIZ_ACTIVITY],
 ] as const
@@ -974,6 +1000,7 @@ type ParsedAgendaTemplate = {
   generalEvaluator?: string
   sergeantAtArms?: string
   grammarian?: string
+  ahCounter?: string
   timer?: string
   harkmaster?: string
   speakerNames: string[]
@@ -1128,6 +1155,9 @@ function parseAgendaTemplate(text: string): ParsedAgendaTemplate {
   parsed.grammarian = firstMatchingRoleValue(lines, [
     /\bgrammarian\b\s*(?::|[-–—])\s*(.+)$/i,
     /word master\s*(?::|[-–—])\s*(.+)$/i,
+  ]) ?? undefined
+  parsed.ahCounter = firstMatchingRoleValue(lines, [
+    /ah[-\s]?counter\s*(?::|[-–—])\s*(.+)$/i,
   ]) ?? undefined
   parsed.timer = firstMatchingRoleValue(lines, [
     /\btimer\b\s*(?::|[-–—])\s*(.+)$/i,
@@ -1499,6 +1529,13 @@ export function applyAgendaTemplateImport(settings: AgendaSettings, text: string
     next.sessions = applyValuesToActivity(next.sessions, "Grammarian's Report", [parsed.grammarian])
     matchedFields.push("grammarian")
     addPreview("Grammarian", parsed.grammarian)
+  }
+
+  if (parsed.ahCounter) {
+    next.sessions = applyValuesToActivity(next.sessions, INTRODUCTION_OF_AH_COUNTER_ACTIVITY, [parsed.ahCounter])
+    next.sessions = applyValuesToActivity(next.sessions, AH_COUNTER_REPORT_ACTIVITY, [parsed.ahCounter])
+    matchedFields.push("ah-counter")
+    addPreview("Ah-Counter", parsed.ahCounter)
   }
 
   if (parsed.timer) {
