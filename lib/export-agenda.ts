@@ -25,6 +25,25 @@ export function makeAgendaPngFilename(settings: Pick<AgendaSettings, "meetingTit
   return `${title}${date ? `-${date}` : ""}.png`
 }
 
+export function revealExportOnlyContent(clonedAgenda: HTMLElement): void {
+  clonedAgenda.querySelectorAll<HTMLElement>(".agenda-export-session-stack").forEach((element) => {
+    // html2canvas can retain the source node's `display: none` state even after
+    // the export-only stylesheet becomes active in the cloned document.
+    element.classList.remove("hidden")
+    element.style.setProperty("display", "flex", "important")
+  })
+
+  clonedAgenda.querySelectorAll<HTMLElement>(".agenda-export-word").forEach((element) => {
+    element.classList.remove("hidden")
+    element.style.setProperty("display", "block", "important")
+  })
+
+  clonedAgenda.querySelectorAll<HTMLElement>(".agenda-export-timezone").forEach((element) => {
+    element.classList.remove("hidden")
+    element.style.setProperty("display", "inline", "important")
+  })
+}
+
 export async function exportAgendaAsPng(settings: AgendaSettings): Promise<void> {
   const agenda = document.getElementById("agenda-sheet")
   if (!(agenda instanceof HTMLElement)) {
@@ -49,6 +68,7 @@ export async function exportAgendaAsPng(settings: AgendaSettings): Promise<void>
       clonedAgenda.style.width = `${MOBILE_AGENDA_EXPORT.cssWidth}px`
       clonedAgenda.style.maxWidth = "none"
       clonedAgenda.style.margin = "0"
+      revealExportOnlyContent(clonedAgenda)
 
       const wrapper = clonedAgenda.parentElement
       if (wrapper) {
