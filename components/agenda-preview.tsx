@@ -309,26 +309,28 @@ export function AgendaPreview({ settings, fullWidth = false }: Props) {
           </div>
         </div>
 
-        {(settings.wordOfTheDay?.trim() ||
-          settings.wordPartOfSpeech?.trim() ||
-          settings.wordOfTheDayMeaning?.trim()) ? (
-          <div className="agenda-export-word hidden">
-            <WordOfTheDayPanel settings={settings} />
-          </div>
-        ) : null}
+        <div className="agenda-export-info-block">
+          {(settings.wordOfTheDay?.trim() ||
+            settings.wordPartOfSpeech?.trim() ||
+            settings.wordOfTheDayMeaning?.trim()) ? (
+            <div className="agenda-export-word hidden">
+              <WordOfTheDayPanel settings={settings} />
+            </div>
+          ) : null}
 
-        {/* Meeting info bar */}
-        <div className="agenda-theme-bar flex flex-wrap items-center justify-between gap-2 bg-[#004165] px-6 py-3 text-white dark:bg-gradient-to-r dark:from-[#3B0104] dark:to-[#781327]">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-            <span className="font-semibold" style={displayFont}>
-              {settings.meetingTitle || "Meeting Agenda"}
+          {/* Meeting info bar */}
+          <div className="agenda-theme-bar flex flex-wrap items-center justify-between gap-2 bg-[#004165] px-6 py-3 text-white dark:bg-gradient-to-r dark:from-[#3B0104] dark:to-[#781327]">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+              <span className="font-semibold" style={displayFont}>
+                {settings.meetingTitle || "Meeting Agenda"}
+              </span>
+              {dateLabel && <span className="text-white/80">{dateLabel}</span>}
+            </div>
+            <span className="agenda-meeting-time text-sm font-medium">
+              {displayStartTime} – {displayEndTime}
+              <span className="agenda-export-timezone hidden"> ({displayTimeZone})</span>
             </span>
-            {dateLabel && <span className="text-white/80">{dateLabel}</span>}
           </div>
-          <span className="agenda-meeting-time text-sm font-medium">
-            {displayStartTime} – {displayEndTime}
-            <span className="agenda-export-timezone hidden"> ({displayTimeZone})</span>
-          </span>
         </div>
 
         {/* Body: session table (main) + club sidebar */}
